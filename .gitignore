@@ -1,0 +1,14 @@
+*.exe
+*.cache
+*.scn
+*.exp
+*.ap~
+*.bpp
+*.bct
+*.shp
+map
+obj
+
+/tests/TESTAPP_BC.CLW
+/tests/TESTSTABLEMANAGER.INC
+/tests/TestApp_BC0.CLW
