@@ -51,7 +51,7 @@ Using **Table Manager**, the backend does all the filtering:
 ## Install
 Copy `TableManager.clw` and `TableManager.inc` to any folder in your `.red` file (for example `Accessory\libsrc`).
 
-## Using
+## Use
 Add the line:
 
     INCLUDE('TableManager.inc'),ONCE
@@ -102,7 +102,7 @@ Will add this to the `WHERE` clause:
 
 ### AddFilterExpression
     .AddFilterExpression ( expression ), 
-     .Variable ( field ) .V ( field )
+    .Variable ( field ) .V ( field )
     .FormatString ( value ), .F (value)
     .FormatDate ( value ), .D ( value )
     .FormatTime ( value), .T (value )
