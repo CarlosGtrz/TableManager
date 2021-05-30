@@ -71,6 +71,7 @@ To a global data embed (like _After Global INCLUDEs_), and declare an instance i
     .AddRange ( field , firstvalue , lastvalue )
     .AddFilter ( field , value )
     .AddFilter ( field , firstvalue , lastvalue )
+    .AddFilter ( expression )
 
 Adds a condition to process the table referenced in the next `.SET` method.
 
@@ -78,6 +79,7 @@ Adds a condition to process the table referenced in the next `.SET` method.
 * _field_ The label of a field in the table.
 * _value_ A constant, variable or expression. Only records where _field_ equal _value_ will be processed.
 * _firstvalue_, _lastvalue_ A constant, variable or expression. Only records where _field_ has a value between _firstvalue_ and _lastvalue_ will be processed.
+* _expression_ A short form of the method `.AddFilterExpression`
 
 A _Range_ condition will cause the `.NEXT` method to return `tm:Record:OutOfRange` when the records doesn't meet the condition, causing the `LOOP` to break.
 A _Filter_ condition will cause the `.NEXT` method to skip the record and advance to the next one, without breaking the `LOOP`.

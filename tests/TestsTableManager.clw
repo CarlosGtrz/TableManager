@@ -89,7 +89,7 @@ tm TableManager
   CLEAR(ORD:Record)
   tm.AddRange(ORD:OrderDate,DATE(10,12,1996),DATE(10,28,1996))
   tm.AddFilter(ORD:ShipState,'FL')
-  tm.AddFilterExpression('NOT ('&tm.Variable(ORD:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORD:ShipZip)&' = '&tm.S(33015)&' )')
+  tm.AddFilter('NOT ('&tm.Variable(ORD:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORD:ShipZip)&' = '&tm.S(33015)&' )')
   tm.SET(ORD:KeyOrderDate)
   LOOP UNTIL tm.NEXT(Orders)
     ordrecs += 1
@@ -149,7 +149,7 @@ tm TableManager
   CLEAR(ORDS:Record)
   tm.AddRange(ORDS:OrderDate,DATE(10,12,1996),DATE(10,28,1996) )
   tm.AddFilter(ORDS:ShipState,'FL')
-  tm.AddFilterExpression('NOT ('&tm.V(ORDS:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORDS:ShipZip)&' = '&tm.S(33015)&' )')
+  tm.AddFilter('NOT ('&tm.V(ORDS:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORDS:ShipZip)&' = '&tm.S(33015)&' )')
   tm.SET(ORDS:KeyOrderDate)
   LOOP UNTIL tm.NEXT(OrdersS)
     ordrecs += 1
