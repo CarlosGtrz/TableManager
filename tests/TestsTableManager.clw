@@ -47,6 +47,7 @@ IQTest                  LONG
   
   SETCLIPBOARD(testResults)
   STOP(testResults)
+
 TestLegacyTps       ROUTINE
   DATA
 ordrecs LONG
@@ -83,13 +84,13 @@ TestTableManagerTps       ROUTINE
 ordrecs LONG
 detrecs LONG
 total   DECIMAL(15,2)
-tm TableManager
+tm  TableManager
   CODE  
   
   CLEAR(ORD:Record)
   tm.AddRange(ORD:OrderDate,DATE(10,12,1996),DATE(10,28,1996))
   tm.AddFilter(ORD:ShipState,'FL')
-  tm.AddFilter('NOT ('&tm.Variable(ORD:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORD:ShipZip)&' = '&tm.S(33015)&' )')
+  tm.AddFilter('NOT ('&tm.V(ORD:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORD:ShipZip)&' = '&tm.S(33015)&' )')
   tm.SET(ORD:KeyOrderDate)
   LOOP UNTIL tm.NEXT(Orders)
     ordrecs += 1
@@ -101,6 +102,7 @@ tm TableManager
       total += DTL:TotalCost
     .
   .  
+  
   AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Table Manager TPS')  
   
 TestLegacySql       ROUTINE
@@ -134,7 +136,7 @@ total   DECIMAL(15,2)
     .
   .
   
-  AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Legacy code SQL<13,10>'&OrdersS{PROP:SQL}&'<13,10>'&DetailS{PROP:SQL})
+  AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Legacy code SQL<13,10,13,10>'&OrdersS{PROP:SQL}&'<13,10,13,10>'&DetailS{PROP:SQL})
 
 TestTableManagerSql       ROUTINE
   DATA
@@ -162,7 +164,7 @@ tm TableManager
     .
   .
   
-  AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Table Manager SQL<13,10>'&OrdersS{PROP:SQL}&'<13,10>'&DetailS{PROP:SQL})
+  AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Table Manager SQL<13,10,13,10>'&OrdersS{PROP:SQL}&'<13,10,13,10>'&DetailS{PROP:SQL})
   
 TestLegacyQueue     ROUTINE
   DATA
@@ -174,6 +176,7 @@ total   LONG
     IF NOT INRANGE(QTest.Number,2000,4000) THEN CYCLE.
     total += QTest.Number
   .
+  
   AssertEqual('6003000',total,'Legacy code Queue')
   
 TestTableManagerQueue   ROUTINE
@@ -187,6 +190,7 @@ tm TableManager
   LOOP UNTIL tm.NEXT(QTest)
     total += QTest.Number
   .
+  
   AssertEqual('6003000',total,'Table Manager Queue')
   
 OpenTps             ROUTINE
@@ -234,8 +238,7 @@ OpenSql             ROUTINE
 CloseSql            ROUTINE
   CLOSE(OrdersS)
   CLOSE(DetailS)
-  
-  
+    
 FillQTest           ROUTINE
   
   FREE(QTest)
@@ -255,6 +258,5 @@ AssertEqual         PROCEDURE(? pExpected,? pActual,STRING pInfo)!,LONG,PROC
     CHOOSE(pExpected = pActual,'ok','--')&'<9>'& |
     CLIP(pInfo)&'<13,10>' & |
     'Exp: <'&CLIP(pExpected)&'>'&'<13,10>'& |
-    'Act: <'&pActual&'>' & |
+    'Act: <'&CLIP(pActual)&'>' & |
     '<13,10,13,10>'
- 
