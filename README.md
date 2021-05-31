@@ -52,7 +52,7 @@ Using **Table Manager**, a SQL logical expression is created and sent to the bac
 Copy `TableManager.clw` and `TableManager.inc` to the app folder or a folder in your `.red` file, like `Accessory\libsrc`.
 
 ## Use
-Add to a global data embed (like _After Global INCLUDEs_), the line:
+Add to a global data embed (like _After Global INCLUDEs_) the line:
 
     INCLUDE('TableManager.inc'),ONCE
     
@@ -60,8 +60,9 @@ In your procedure or routine, declare an instance, and start modifying your code
 
     tm TableManager
       CODE
-      CLEAR(TBL:Record)      
-      tm.AddRange(TBL:field,LOC:value)   !Old code: TBL:field = LOC:Value
+      CLEAR(TBL:Record)                  !Old code:
+      tm.AddRange(TBL:field,LOC:value)   ! TBL:field = LOC:Value
+      tm.SET(TBL:fieldKey)               ! SET(TBL:fieldKey,TBL:fieldKey)      
       ...
 
 ## Methods
@@ -73,7 +74,7 @@ In your procedure or routine, declare an instance, and start modifying your code
     .AddFilter ( field , firstvalue , lastvalue )
     .AddFilter ( expression )
 
-Adds a condition to process the table referenced in the next `.SET` method.
+Adds a condition to process the table referenced in the next `.SET` method call.
 
 *Parameters*
 * _field_ The label of a field in the table.
