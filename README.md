@@ -71,7 +71,7 @@ In your procedure or routine, declare an instance, and start modifying your code
     .Init
     .Init( record )
     
-Initializes the class conditions. If a record is passed, it also clears the records, and if the record's tables has been used before, it clears the table's ranges and filters.
+Initializes the instance's conditions. If a record is passed, it also clears the record; and if the record's table has been used before, it clears its ranges and filters.
 
 *Parameters*
 * _record_ The label of a table's record.
