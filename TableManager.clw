@@ -108,6 +108,28 @@ TableManager.FormatTime   PROCEDURE(? pField)!,STRING
 TableManager.T      PROCEDURE(? pField)!,STRING
   CODE
   RETURN SELF.FormatTime(pField)
+  
+TableManager.FormatDateTime PROCEDURE(? pDate, ? pTime)!,STRING
+  CODE
+  RETURN SELF.FormatDate(pDate)&' '&SELF.FormatTime(pTime)  
+  
+TableManager.DT     PROCEDURE(? pDate, ? pTime)!,STRING
+  CODE
+  RETURN SELF.FormatDateTime(pDate,pTime)
+  
+TableManager.FormatDateTime PROCEDURE(*GROUP pDateTimeGroup)!,STRING
+dtGroup                       GROUP
+date                            DATE
+time                            TIME
+                              END
+  CODE
+  dtGroup = pDateTimeGroup   
+  RETURN SELF.FormatDateTime(dtGroup.date,dtGroup.time)
+  
+TableManager.DT     PROCEDURE(*GROUP pDateTimeGroup)!,STRING
+  CODE
+  RETURN SELF.FormatDateTime(pDateTimeGroup)
+
 
 TableManager.SET    PROCEDURE(KEY pKey)
 fileref               &FILE
@@ -283,7 +305,8 @@ TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
     SELF.Tables.Groups &= NEW GroupsType
     SELF.AddGroupToFields(0,pFile{PROP:Fields})
     ADD(SELF.Tables)
-  .  
+  .
+  SELF.MarkDateTimeGroups
   SELF.MoveConditionsToTable
   IF RECORDS(SELF.Conditions)
     GET(SELF.Conditions,1)
@@ -443,6 +466,23 @@ count                         LONG
     .
   .
   RETURN count
+  
+TableManager.MarkDateTimeGroups PROCEDURE!,PRIVATE
+isDate                            LONG
+isTime                            LONG
+  CODE  
+  SELF.SetQueue(SELF.Tables.Groups)
+  LOOP UNTIL SELF.NextQueue(SELF.Tables.Groups)
+    IF RECORDS(SELF.Tables.Groups.Fields) <> 2 THEN CYCLE.
+    GET(SELF.Tables.Groups.Fields,1)
+    isDate = CHOOSE(SELF.Tables.Groups.Fields.FieldType = tm:Date)
+    GET(SELF.Tables.Groups.Fields,2)
+    isTime = CHOOSE(SELF.Tables.Groups.Fields.FieldType = tm:Time)
+    IF isDate AND isTime
+      SELF.Tables.Groups.IsDateTime = 1
+      PUT(SELF.Tables.Groups)
+    .
+  .  
     
 TableManager.SetSqlWhereConditions  PROCEDURE!,PRIVATE
 where                                 ANY
@@ -485,10 +525,9 @@ where                         ANY
           OF tm:BetweenValuesRange OROF tm:BetweenValuesFilter
             pCondition.FieldRef = pCondition.FirstValue
             where = where & CHOOSE(where <> '',' AND ','') & |
-              CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' >= '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
+              CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' BETWEEN '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
             pCondition.FieldRef = pCondition.LastValue
-            where = where & ' AND ' & |
-              CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' <= '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
+            where = where & ' AND ' & SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
         .    
       .      
       RETURN where
@@ -500,7 +539,7 @@ where                         ANY
       OF tm:EqualToValueRange OROF tm:EqualToValueFilter
         RETURN CLIP(pCondition.FieldSqlName)&' = '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)
       OF tm:BetweenValuesRange OROF tm:BetweenValuesFilter
-        RETURN CLIP(pCondition.FieldSqlName)&' >= '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)&' AND '&CLIP(pCondition.FieldSqlName)&' <= '&SELF.FormatField(pCondition.LastValue,pCondition.FieldType)
+        RETURN CLIP(pCondition.FieldSqlName)&' BETWEEN '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)&' AND '&SELF.FormatField(pCondition.LastValue,pCondition.FieldType)
       OF tm:ExpressionFilter
         RETURN CLIP(SELF.ReplaceVariables(pCondition.FirstValue,tm:ReplaceWithSqlNames))        
     .  

@@ -46,7 +46,7 @@ It only filters records lower than the initial key value. The end of the range a
 
 Using **Table Manager**, a SQL logical expression is created and sent to the backend:
 
-    WHERE (ORDERDATE >= '19961012' AND ORDERDATE <= '19961028' AND SHIPSTATE = 'FL'  )
+    WHERE (ORDERDATE BETWEEN '19961012' AND '19961028' AND SHIPSTATE = 'FL')
     
 ## Install
 Copy `TableManager.clw` and `TableManager.inc` to the app folder or a folder in your `.red` file, like `Accessory\libsrc`.

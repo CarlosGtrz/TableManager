@@ -34,6 +34,7 @@ Numeric               EQUATE
 String                EQUATE
 Date                  EQUATE
 Time                  EQUATE
+DateTime              EQUATE
 Group                 EQUATE
 Unknown               EQUATE(99)
                     END
@@ -88,6 +89,7 @@ FieldSqlName          ANY
 
 GroupsType          QUEUE,TYPE
 GroupId               LONG
+IsDateTime            LONG
 Fields                &FieldsType
                     END
 
@@ -118,6 +120,10 @@ FormatDate                  PROCEDURE(? pField),STRING
 D                     PROCEDURE(? pField),STRING
 FormatTime                  PROCEDURE(? pField),STRING
 T                     PROCEDURE(? pField),STRING
+FormatDateTime        PROCEDURE(? pDate, ? pTime),STRING
+DT                    PROCEDURE(? pDate, ? pTime),STRING
+FormatDateTime        PROCEDURE(*GROUP pDateTimeGroup),STRING
+DT                    PROCEDURE(*GROUP pDateTimeGroup),STRING
 
 SET                   PROCEDURE(KEY pKey)
 SET                   PROCEDURE(KEY pKey1,KEY pKey2)
@@ -140,6 +146,8 @@ AddTable              PROCEDURE(FILE pFile),PRIVATE
 MoveConditionsToTable PROCEDURE,PRIVATE
 AddGroupToFields      PROCEDURE(LONG pStart,LONG pTotal,<*GROUP pGroup>),PRIVATE
 FieldsInGroup         PROCEDURE(*GROUP pGroup),LONG,PRIVATE
+MarkDateTimeGroups    PROCEDURE,PRIVATE
+
 
 SetSqlWhereConditions PROCEDURE,PRIVATE
 SqlCondition          PROCEDURE(ConditionsType pCondition),STRING,PRIVATE  
