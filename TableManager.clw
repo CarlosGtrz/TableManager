@@ -299,7 +299,7 @@ TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
   GET(SELF.Tables,SELF.Tables.TableAddress)
   IF ERRORCODE() THEN 
     SELF.Tables.FileRef &= pFile
-    SELF.Tables.IsSql = CHOOSE(INLIST(UPPER(pFile{PROP:Driver}),'MSSQL','ODBC','SCALABLE','SQLANYWHERE','SQLITE')<>0)  
+    SELF.Tables.IsSql = pFile{PROP:SQLDriver}
     SELF.Tables.Ranges &= NEW ConditionsType  
     SELF.Tables.Filters &= NEW ConditionsType  
     SELF.Tables.Groups &= NEW GroupsType
