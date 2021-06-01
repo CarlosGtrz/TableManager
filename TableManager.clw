@@ -304,9 +304,9 @@ TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
     SELF.Tables.Filters &= NEW ConditionsType  
     SELF.Tables.Groups &= NEW GroupsType
     SELF.AddGroupToFields(0,pFile{PROP:Fields})
+    SELF.MarkDateTimeGroups
     ADD(SELF.Tables)
   .
-  SELF.MarkDateTimeGroups
   SELF.MoveConditionsToTable
   IF RECORDS(SELF.Conditions)
     GET(SELF.Conditions,1)
@@ -713,6 +713,7 @@ TableManager.AddTable   PROCEDURE(QUEUE pQueue)!,PRIVATE
     SELF.Tables.Filters &= NEW ConditionsType  
     SELF.Tables.Groups &= NEW GroupsType
     SELF.AddGroupToFields(0,SELF.FieldsInGroup(pQueue),pQueue)
+    SELF.MarkDateTimeGroups
     ADD(SELF.Tables)
   .  
   SELF.MoveConditionsToTable
