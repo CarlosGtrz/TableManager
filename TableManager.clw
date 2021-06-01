@@ -27,10 +27,28 @@
   INCLUDE('Equates.CLW'),ONCE
   INCLUDE('TABLEMANAGER.INC'),ONCE
 
-TableManager.ClearConditions    PROCEDURE
+TableManager.Init   PROCEDURE
   CODE
   SELF.ClearConditions(SELF.Conditions)
-
+  
+TableManager.Init   PROCEDURE(*GROUP pRecord)
+recref ANY
+  CODE
+  CLEAR(pRecord)
+  SELF.ClearConditions(SELF.Conditions)
+  !If the table has been used before, clear its conditions
+  recref &= pRecord
+  CLEAR(SELF.Fields)
+  SELF.GetTufoInfo(recref,SELF.Fields.TufoType,SELF.Fields.TufoAddress,SELF.Fields.TufoType)
+  GET(SELF.Fields,SELF.Fields.TufoAddress) !No need to validate type and size, it'll match first field in record.
+  IF ERRORCODE() THEN RETURN. 
+  CLEAR(SELF.Tables)
+  SELF.Tables.TableAddress = SELF.Fields.TableAddress
+  GET(SELF.Tables,SELF.Tables.TableAddress)
+  IF ERRORCODE() THEN RETURN.
+  SELF.ClearConditions(SELF.Tables.Ranges)
+  SELF.ClearConditions(SELF.Tables.Filters)
+  
 TableManager.AddRange   PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
   CODE
   IF OMITTED(pLastValue)
@@ -270,7 +288,7 @@ TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
   IF RECORDS(SELF.Conditions)
     GET(SELF.Conditions,1)
     STOP('Not all conditions match fields in the table, example value: '&CLIP(SELF.Conditions.FirstValue))
-    SELF.ClearConditions
+    SELF.ClearConditions(SELF.Conditions)
   .  
   
 TableManager.MoveConditionsToTable  PROCEDURE!,PRIVATE
@@ -488,6 +506,8 @@ where                         ANY
     .  
   .
   
+  RETURN ''
+  
 TableManager.FormatField    PROCEDURE(? pFieldValue,FieldTypeType pFieldType)!,STRING,PRIVATE
   CODE
   CASE pFieldType
@@ -501,6 +521,8 @@ TableManager.FormatField    PROCEDURE(? pFieldValue,FieldTypeType pFieldType)!,S
       RETURN ''''&FORMAT(pFieldValue,@T04-)&''''
   .
   
+  RETURN ''
+
 TableManager.Move   PROCEDURE(FILE pFile,DirectionTypeType pDirection)!,LONG,PRIVATE
 addr                   LONG
   CODE
@@ -540,6 +562,8 @@ addr                   LONG
         RETURN tm:Record:OutOfRange
     .    
   .
+  
+  RETURN tm:Record:OutOfRange 
       
 TableManager.EvaluateConditions PROCEDURE!,LONG,PRIVATE
   CODE  
@@ -656,7 +680,7 @@ TableManager.AddTable   PROCEDURE(QUEUE pQueue)!,PRIVATE
   IF RECORDS(SELF.Conditions)
     GET(SELF.Conditions,1)
     STOP('Not all conditions match fields in the table, example value: '&CLIP(SELF.Conditions.FirstValue))
-    SELF.ClearConditions
+    SELF.ClearConditions(SELF.Conditions)
   .
   
 TableManager.Move   PROCEDURE(QUEUE pQueue,DirectionTypeType pDirection)!,LONG,PRIVATE
@@ -686,6 +710,7 @@ addr                   LONG
         CYCLE
     .    
   .  
+  RETURN tm:Record:OutOfRange  
 
 TableManager.SetQueue   PROCEDURE(QUEUE pQueue)!,PRIVATE
   CODE

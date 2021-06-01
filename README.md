@@ -25,12 +25,12 @@ This is classic code to read two related tables with Clarion:
 
 Using **Table Manager**, it can be reduced to:
 
-    CLEAR(ORD:Record)
+    tm.Init(ORD:Record)
     tm.AddRange(ORD:OrderDate,DATE(10,12,1996),DATE(10,28,1996))
     tm.AddFilter(ORD:ShipState,'FL')
     tm.SET(ORD:KeyOrderDate)
     LOOP UNTIL tm.NEXT(Orders)
-      CLEAR(DTL:Record)
+      tm.Init(DTL:Record)
       tm.AddRange(DTL:CustOrderNumbers,ORD:CustOrderNumbers)
       tm.SET(DTL:KeyDetails)
       LOOP UNTIL tm.NEXT(Detail)
@@ -60,12 +60,21 @@ In your procedure or routine, declare an instance, and start modifying your code
 
     tm TableManager
       CODE
-      CLEAR(TBL:Record)                  !Old code:
+      tm.Init(TBL:Record)                  !Old code:
       tm.AddRange(TBL:field,LOC:value)   ! TBL:field = LOC:Value
       tm.SET(TBL:fieldKey)               ! SET(TBL:fieldKey,TBL:fieldKey)      
       ...
 
 ## Methods
+
+### Init
+    .Init
+    .Init( record )
+    
+Initializes the class conditions. If a record is passed, it also clears the records, and if the record's tables has been used before, it clears the table's ranges and filters.
+
+*Parameters*
+* _record_ The label of a table's record.
 
 ### AddRange, AddFilter
     .AddRange ( field , value )

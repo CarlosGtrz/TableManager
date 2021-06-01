@@ -87,14 +87,14 @@ total   DECIMAL(15,2)
 tm  TableManager
   CODE  
   
-  CLEAR(ORD:Record)
+  tm.Init(ORD:Record)
   tm.AddRange(ORD:OrderDate,DATE(10,12,1996),DATE(10,28,1996))
   tm.AddFilter(ORD:ShipState,'FL')
   tm.AddFilter('NOT ('&tm.V(ORD:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORD:ShipZip)&' = '&tm.S(33015)&' )')
   tm.SET(ORD:KeyOrderDate)
   LOOP UNTIL tm.NEXT(Orders)
     ordrecs += 1
-    CLEAR(DTL:Record)
+    tm.Init(DTL:Record)
     tm.AddRange(DTL:CustOrderNumbers,ORD:CustOrderNumbers)
     tm.SET(DTL:KeyDetails)
     LOOP UNTIL tm.NEXT(Detail)
@@ -148,14 +148,14 @@ tm TableManager
   
   IF NOT STATUS(OrdersS) THEN EXIT.
 
-  CLEAR(ORDS:Record)
+  tm.Init(ORDS:Record)
   tm.AddRange(ORDS:OrderDate,DATE(10,12,1996),DATE(10,28,1996) )
   tm.AddFilter(ORDS:ShipState,'FL')
   tm.AddFilter('NOT ('&tm.V(ORDS:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORDS:ShipZip)&' = '&tm.S(33015)&' )')
   tm.SET(ORDS:KeyOrderDate)
   LOOP UNTIL tm.NEXT(OrdersS)
     ordrecs += 1
-    CLEAR(DTLS:Record)
+    tm.Init(DTLS:Record)
     tm.AddRange(DTLS:CustOrderNumbers,ORDS:CustOrderNumbers)
     tm.SET(DTLS:KeyDetails)
     LOOP UNTIL tm.NEXT(DetailS)

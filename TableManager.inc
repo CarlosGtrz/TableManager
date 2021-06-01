@@ -102,7 +102,8 @@ Groups                &GroupsType
 
 TableManager        CLASS,MODULE('TableManager'),LINK('TableManager'),TYPE
 
-ClearConditions       PROCEDURE()
+Init                  PROCEDURE
+Init                  PROCEDURE(*GROUP pRecord)
 
 AddRange              PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
 AddFilter             PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
