@@ -555,9 +555,15 @@ TableManager.FormatField    PROCEDURE(? pFieldValue,FieldTypeType pFieldType)!,S
     OF tm:String
       RETURN ''''&CLIP(pFieldValue)&''''      
     OF tm:Date
+      IF pFieldValue = 0 
+        pFieldValue = 4 !January 1, 1801 (standard date 4) 18010101
+      .      
       RETURN ''''&FORMAT(pFieldValue,@D12)&''''      
     OF tm:Time
-      RETURN ''''&FORMAT(pFieldValue,@T04-)&''''
+      IF pFieldValue = 0
+        pFieldValue = 1 !midnight 00:00:00.00
+      .      
+      RETURN ''''&FORMAT(pFieldValue,@T04)&'.'&FORMAT((pFieldValue-1)%100,@n02)&''''
   .
   
   RETURN ''
