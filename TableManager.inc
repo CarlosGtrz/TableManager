@@ -1,3 +1,6 @@
+!!! <summary>
+!!! Generated class template - SourceClass
+!!! </summary>
 !Carlos Gutierrez   carlosg@sca.mx    https://github.com/CarlosGtrz
 !
 !MIT License
@@ -45,7 +48,7 @@ EqualToValueRange     EQUATE
 BetweenValuesRange    EQUATE
 EqualToValueFilter    EQUATE
 BetweenValuesFilter   EQUATE
-ExpressionFilter       EQUATE
+ExpressionFilter      EQUATE
                     END
 
 DirectionTypeType   EQUATE(LONG)
@@ -85,6 +88,7 @@ FieldType             FieldTypeType
 GroupId               LONG
 FieldName             ANY
 FieldSqlName          ANY
+IsPartOfDateTime      LONG
                     END
 
 GroupsType          QUEUE,TYPE
@@ -102,10 +106,15 @@ Filters               &ConditionsType
 Groups                &GroupsType
                     END
 
+DateTimeGroupType   GROUP,TYPE
+DatePart              DATE
+TimePart              TIME
+                    END
+
 TableManager        CLASS,MODULE('TableManager'),LINK('TableManager'),TYPE
 
 Init                  PROCEDURE
-Init                  PROCEDURE(*GROUP pRecord)
+Init                  PROCEDURE(*GROUP pRecord,SIGNED pN = 0)
 
 AddRange              PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
 AddFilter             PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
@@ -114,31 +123,41 @@ AddFilter             PROCEDURE(STRING pExpression)
 AddFilterExpression   PROCEDURE(STRING pExpression)
 Variable              PROCEDURE(*? pField),STRING
 V                     PROCEDURE(*? pField),STRING
-FormatString                PROCEDURE(? pField),STRING
+FormatString          PROCEDURE(? pField),STRING
 S                     PROCEDURE(? pField),STRING
-FormatDate                  PROCEDURE(? pField),STRING
+FormatDate            PROCEDURE(? pField),STRING
 D                     PROCEDURE(? pField),STRING
-FormatTime                  PROCEDURE(? pField),STRING
+FormatTime            PROCEDURE(? pField),STRING
 T                     PROCEDURE(? pField),STRING
 FormatDateTime        PROCEDURE(? pDate, ? pTime),STRING
 DT                    PROCEDURE(? pDate, ? pTime),STRING
-FormatDateTime        PROCEDURE(*GROUP pDateTimeGroup),STRING
-DT                    PROCEDURE(*GROUP pDateTimeGroup),STRING
+FormatDateTime        PROCEDURE(*DateTimeGroupType pDateTimeGroup),STRING
+DT                    PROCEDURE(*DateTimeGroupType pDateTimeGroup),STRING
+DateTimeGroup         PROCEDURE(? pDate, ? pTime),STRING!,DateTimeGroupType
 
-SET                   PROCEDURE(KEY pKey)
+SET                   PROCEDURE(KEY pKey1)
 SET                   PROCEDURE(KEY pKey1,KEY pKey2)
 SET                   PROCEDURE(FILE pFile)
 NEXT                  PROCEDURE(FILE pFile),LONG,PROC
 PREVIOUS              PROCEDURE(FILE pFile),LONG,PROC
+GET                   PROCEDURE(KEY pKey1,? pKeyVal1,<? pKeyVal2>,<? pKeyVal3>,<? pKeyVal4>,<? pKeyVal5>,<? pKeyVal6>,<? pKeyVal7>,<? pKeyVal8>,<? pKeyVal9>,<? pKeyVal10>),BOOL,PROC
+GET                   PROCEDURE(KEY pKey1,*GROUP pGroup),BOOL,PROC
 
 SET                   PROCEDURE(QUEUE pQueue)
 NEXT                  PROCEDURE(QUEUE pQueue),LONG,PROC
 PREVIOUS              PROCEDURE(QUEUE pQueue),LONG,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,? pKeyVal1),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,? pKeyVal1,? pKeyVal2),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,? pKeyVal1,? pKeyVal2,? pKeyVal3),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,*? pKey6,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5,? pKeyVal6),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,*? pKey6,*? pKey7,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5,? pKeyVal6,? pKeyVal7),BOOL,PROC
+GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,*? pKey6,*? pKey7,*? pKey8,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5,? pKeyVal6,? pKeyVal7,? pKeyVal8),BOOL,PROC
 
-Conditions            &ConditionsType,PRIVATE
-Tables                &TablesType,PRIVATE
-Fields                &FieldsType,PRIVATE
+SetGETClearsBuffer    PROCEDURE(BOOL pValue)
 
+!Private methods
 AddCondition          PROCEDURE(ConditionTypeType pConditionType,<*? pField>,? pFirstValue,<? pLastValue>),PRIVATE
 GetTufoInfo           PROCEDURE(*? pAny,*LONG pType,*LONG pAddress,*LONG pSize),PRIVATE
 
@@ -147,7 +166,6 @@ MoveConditionsToTable PROCEDURE,PRIVATE
 AddGroupToFields      PROCEDURE(LONG pStart,LONG pTotal,<*GROUP pGroup>),PRIVATE
 FieldsInGroup         PROCEDURE(*GROUP pGroup),LONG,PRIVATE
 MarkDateTimeGroups    PROCEDURE,PRIVATE
-
 
 SetSqlWhereConditions PROCEDURE,PRIVATE
 SqlCondition          PROCEDURE(ConditionsType pCondition),STRING,PRIVATE  
@@ -163,9 +181,16 @@ Move                  PROCEDURE(QUEUE pQueue,DirectionTypeType pDirection),LONG,
 SetQueue              PROCEDURE(QUEUE pQueue),PRIVATE
 NextQueue             PROCEDURE(QUEUE pQueue),LONG,PROC,PRIVATE
 PreviousQueue         PROCEDURE(QUEUE pQueue),LONG,PROC,PRIVATE
+GetQueueName          PROCEDURE(QUEUE pQueue,STRING pName),BOOL,PROC,PRIVATE
 
 ClearConditions       PROCEDURE(ConditionsType pConditions),PRIVATE
 Construct             PROCEDURE
 Destruct              PROCEDURE
+
+Conditions            &ConditionsType,PRIVATE
+Tables                &TablesType,PRIVATE
+Fields                &FieldsType,PRIVATE
+
+GETClearsBuffer       BOOL,PRIVATE
 
                     END

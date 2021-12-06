@@ -48,6 +48,32 @@ Using **Table Manager**, a SQL logical expression is created and sent to the bac
 
     WHERE (ORDERDATE BETWEEN '19961012' AND '19961028' AND SHIPSTATE = 'FL')
     
+    
+Another common code is:
+
+``` 
+ CLEAR(ORD:Record)
+ ORD:CustNumber = 4
+ ORD:OrderNumber = 3
+ GET(Orders,ORD:KeyCustOrderNumber)
+ IF NOT ERRORCODE() 
+   !Some code
+ .
+``` 
+
+With **Table Manager**, it can be:
+``` 
+  IF tm.GET(ORD:KeyCustOrderNumber,4,3)  !1 to 10 key components
+    !Some code
+  .
+```
+Also for queues:
+```
+  IF tm.GET(myQueue,myQueue.Field1,myQueue.Field2,Value1,Value2) !1 to 8 field/value pairs
+    !Some code
+  .
+```
+
 ## Install
 Copy `TableManager.clw` and `TableManager.inc` to the app folder or a folder in your `.red` file, like `Accessory\libsrc`.
 
@@ -59,19 +85,19 @@ Add to a global data embed (like _After Global INCLUDEs_) the line:
 In your procedure or routine, declare an instance, and start modifying your code:
 
     tm TableManager
-      CODE
-      tm.Init(TBL:Record)                  !Old code:
-      tm.AddRange(TBL:field,LOC:value)   ! TBL:field = LOC:Value
-      tm.SET(TBL:fieldKey)               ! SET(TBL:fieldKey,TBL:fieldKey)      
+      CODE                               !Old code:
+      tm.Init(TBL:Record)                !CLEAR(TBL:Record)
+      tm.AddRange(TBL:field,LOC:value)   !TBL:field = LOC:Value
+      tm.SET(TBL:fieldKey)               !SET(TBL:fieldKey,TBL:fieldKey)      
       ...
 
 ## Methods
 
 ### Init
     .Init
-    .Init( record )
+    .Init( record , n )
     
-Initializes the instance's conditions. If a record is passed, it also clears the record; and if the record's table has been used before, it clears its ranges and filters.
+Initializes the instance's conditions. If a record is passed, it also clears the record; and if the record's table has been used before, it clears its ranges and filters. Parameter `n` is like Clarion's `CLEAR` parameter: set to -1 or 1 to clear the fields to their minimum or maximum value, defaults to 0.
 
 *Parameters*
 * _record_ The label of a table's record.
@@ -168,10 +194,29 @@ Links all the conditions to the table to be processed, sets the order, and prepa
 Reads the next or previous records of the table. If a record doesn't match a _Filter_ condition, it's skipped. It can be used as a logical expression in a `LOOP UNTIL` structure.
 
 *Parameters*
-* _table_ The lable of the `FILE` 
+* _table_ The label of the `FILE` 
 * _queue_ The label or a `QUEUE`
 
 *Returns*
 * `tm:Record:OK` (0) If the record read matches all conditions.
 * `tm:Record:OutOfRange` (1) If the record read fails a _Range_ condition.
 * `ERRORCODE()` If there is an error posted by Clarion's `NEXT` or `PREVIOUS` instruction.
+
+
+### GET
+    .GET( tablekey , keval1, <keyval2>, ... , <keyval10> )
+    .GET( queue , field1 , fielvalue1 )
+    .GET( queue , field1 , field2 ... field8 , fieldvalue1, fieldvalue2 ... fieldvalue8 )
+    
+Clears the table or queue buffer and then gets the record matching the key values. Clear can be skipped by calling `.SetGETClearsBuffer(FALSE)`.
+
+*Parameters*
+* _tablekey_ The label of a KEY
+* _keyval1_ ... _keyval10_ The values for each key component
+* _queue_ The label or a `QUEUE`
+* _field1_ ... _field8_  The label of a field in the queue
+* _fieldvalue1_ ... _fieldvalue8_   The values for each field. 
+
+*Returns*
+* `TRUE` (1) If the record is found
+* `FALSE` (0) If there is an error posted by Clarion's `GET`.

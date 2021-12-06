@@ -25,7 +25,7 @@
     <check_index>False</check_index>
   </PropertyGroup>
   <ItemGroup>
-    <FileDriver Include="MEMORY" />
+    <FileDriver Include="DOS" />
     <FileDriver Include="MSSQL" />
     <FileDriver Include="TOPSPEED" />
     <Compile Include="TestApp.clw">

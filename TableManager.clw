@@ -1,3 +1,8 @@
+  MEMBER()
+  MAP
+  END
+  INCLUDE('Equates.CLW'),ONCE
+  INCLUDE('TABLEMANAGER.INC'),ONCE
 !Carlos Gutierrez   carlosg@sca.mx    https://github.com/CarlosGtrz
 !
 !MIT License
@@ -21,21 +26,17 @@
 !LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 !OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 !SOFTWARE.
-  MEMBER()
-  MAP
-  END
-  INCLUDE('Equates.CLW'),ONCE
-  INCLUDE('TABLEMANAGER.INC'),ONCE
 
 TableManager.Init   PROCEDURE
   CODE
   SELF.ClearConditions(SELF.Conditions)
+  SELF.GetClearsBuffer = TRUE
   
-TableManager.Init   PROCEDURE(*GROUP pRecord)
-recref ANY
+TableManager.Init   PROCEDURE(*GROUP pRecord,SIGNED pN = 0)
+recref                ANY
   CODE
-  CLEAR(pRecord)
-  SELF.ClearConditions(SELF.Conditions)
+  SELF.Init
+  CLEAR(pRecord,pN)
   !If the table has been used before, clear its conditions
   recref &= pRecord
   CLEAR(SELF.Fields)
@@ -85,7 +86,7 @@ TableManager.V      PROCEDURE(*? pField)!,STRING
   CODE
   RETURN SELF.Variable(pField)
 
-TableManager.FormatString PROCEDURE(? pField)!,STRING
+TableManager.FormatString   PROCEDURE(? pField)!,STRING
   CODE
   RETURN SELF.FormatField(pField,tm:String)
   
@@ -93,7 +94,7 @@ TableManager.S      PROCEDURE(? pField)!,STRING
   CODE
   RETURN SELF.FormatString(pField)
 
-TableManager.FormatDate   PROCEDURE(? pField)!,STRING
+TableManager.FormatDate PROCEDURE(? pField)!,STRING
   CODE
   RETURN SELF.FormatField(pField,tm:Date)
   
@@ -101,7 +102,7 @@ TableManager.D      PROCEDURE(? pField)!,STRING
   CODE
   RETURN SELF.FormatDate(pField)
 
-TableManager.FormatTime   PROCEDURE(? pField)!,STRING
+TableManager.FormatTime PROCEDURE(? pField)!,STRING
   CODE
   RETURN SELF.FormatField(pField,tm:Time)
   
@@ -117,36 +118,37 @@ TableManager.DT     PROCEDURE(? pDate, ? pTime)!,STRING
   CODE
   RETURN SELF.FormatDateTime(pDate,pTime)
   
-TableManager.FormatDateTime PROCEDURE(*GROUP pDateTimeGroup)!,STRING
-dtGroup                       GROUP
-date                            DATE
-time                            TIME
-                              END
+TableManager.FormatDateTime PROCEDURE(*DateTimeGroupType pDateTimeGroup)!,STRING
   CODE
-  dtGroup = pDateTimeGroup   
-  RETURN SELF.FormatDateTime(dtGroup.date,dtGroup.time)
+  RETURN SELF.FormatDateTime(pDateTimeGroup.DatePart,pDateTimeGroup.TimePart)
   
-TableManager.DT     PROCEDURE(*GROUP pDateTimeGroup)!,STRING
+TableManager.DT     PROCEDURE(*DateTimeGroupType pDateTimeGroup)!,STRING
   CODE
   RETURN SELF.FormatDateTime(pDateTimeGroup)
+  
+TableManager.DateTimeGroup  PROCEDURE(? pDate, ? pTime)!,STRING!,DateTimeGroupType
+dtgroup                       LIKE(DateTimeGroupType)
+  CODE
+  dtgroup.DatePart = pDate
+  dtgroup.TimePart = pTime
+  RETURN dtgroup
 
-
-TableManager.SET    PROCEDURE(KEY pKey)
+TableManager.SET    PROCEDURE(KEY pKey1)
 fileref               &FILE
   CODE  
   
-  fileRef &= pKey{PROP:File} 
+  fileRef &= pKey1{PROP:File} 
   SELF.AddTable(fileref)
   
   IF SELF.Tables.IsSql
-    SET(pKey)
+    SET(pKey1)
     SELF.SetSqlWhereConditions
   ELSE
     SELF.SetQueue(SELF.Tables.Ranges)
     LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
       SELF.Tables.Ranges.FieldRef = SELF.Tables.Ranges.FirstValue
     .
-    SET(pKey,pKey)
+    SET(pKey1,pKey1)
   .
 
 TableManager.SET    PROCEDURE(KEY pKey1,KEY pKey2)
@@ -167,20 +169,238 @@ TableManager.NEXT   PROCEDURE(FILE pFile)!,LONG,PROC
 
 TableManager.PREVIOUS   PROCEDURE(FILE pFile)!,LONG,PROC
   CODE  
-  RETURN SELF.Move(pFile,tm:Previous)
+  RETURN SELF.Move(pFile,tm:Previous)  
+  
+TableManager.GET    PROCEDURE(KEY pKey1,? pKeyVal1,<? pKeyVal2>,<? pKeyVal3>,<? pKeyVal4>,<? pKeyVal5>,<? pKeyVal6>,<? pKeyVal7>,<? pKeyVal8>,<? pKeyVal9>,<? pKeyVal10>)!,BOOL
+fileref               &FILE
+grpref                &GROUP
+idx                   LONG
+fld                   ANY
+  CODE  
+  
+  fileRef &= pKey1{PROP:File} 
+  grpref &= fileref{PROP:Record} 
+  IF grpref &= NULL THEN RETURN FALSE.
+  IF SELF.GetClearsBuffer THEN CLEAR(grpref).
+  LOOP idx = 1 TO 10
+    IF OMITTED(2+idx) THEN CYCLE. !1 class, 2 key
+    IF idx > pKey1{PROP:Components}
+      !Raise Error
+      BREAK
+    .
+    fld &= WHAT(grpref,pKey1{PROP:Field, idx})
+    IF fld &= NULL 
+      CYCLE
+    .      
+    EXECUTE idx
+      fld = pKeyVal1 
+      fld = pKeyVal2
+      fld = pKeyVal3
+      fld = pKeyVal4
+      fld = pKeyVal5
+      fld = pKeyVal6
+      fld = pKeyVal7
+      fld = pKeyVal8
+      fld = pKeyVal9
+      fld = pKeyVal10
+    .
+  .
+  GET(fileref,pKey1)
+  IF ERRORCODE() 
+    RETURN FALSE
+  .
+  RETURN TRUE
+  
+TableManager.GET    PROCEDURE(KEY pKey1,*GROUP pGroup)!,BOOL
+idx                   LONG
+fld                   ANY
+val1                  ANY
+val2                  ANY
+val3                  ANY
+val4                  ANY
+val5                  ANY
+val6                  ANY
+val7                  ANY
+val8                  ANY
+val9                  ANY
+val10                 ANY
+  CODE
+  
+  LOOP
+    idx += 1
+    IF idx > 10 THEN BREAK.
+    fld &= WHAT(pGroup,idx)
+    IF fld &= NULL THEN BREAK.
+    EXECUTE idx 
+      val1 = fld
+      val2 = fld
+      val3 = fld
+      val4 = fld
+      val5 = fld
+      val6 = fld
+      val7 = fld
+      val8 = fld
+      val9 = fld
+      val10 = fld
+    .
+  .
+  EXECUTE idx-1
+    RETURN SELF.GET(pKey1,val1)
+    RETURN SELF.GET(pKey1,val1,val2)
+    RETURN SELF.GET(pKey1,val1,val2,val3)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4,val5)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4,val5,val6)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4,val5,val6,val7)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4,val5,val6,val7,val8)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4,val5,val6,val7,val8,val9)
+    RETURN SELF.GET(pKey1,val1,val2,val3,val4,val5,val6,val7,val8,val9,val10)
+  .
+  RETURN FALSE
   
 TableManager.SET    PROCEDURE(QUEUE pQueue)
   CODE
+  
   SELF.AddTable(pQueue)
   SELF.SetQueue(pQueue)
   
 TableManager.NEXT   PROCEDURE(QUEUE pQueue)!,LONG,PROC  
   CODE
+  
   RETURN SELF.Move(pQueue,tm:Next)
 
 TableManager.PREVIOUS   PROCEDURE(QUEUE pQueue)!,LONG,PROC  
   CODE
+  
   RETURN SELF.Move(pQueue,tm:Previous)
+  
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,? pKeyVal1)!,BOOL,PROC
+  CODE
+  
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1)) | 
+      ) 
+
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,? pKeyVal1,? pKeyVal2)!,BOOL,PROC
+  CODE
+  
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2)) | 
+      )
+
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,? pKeyVal1,? pKeyVal2,? pKeyVal3)!,BOOL,PROC
+  CODE
+
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  pKey3 = pKeyVal3
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey3)) | 
+      )
+
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4)!,BOOL,PROC
+  CODE
+
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  pKey3 = pKeyVal3
+  pKey3 = pKeyVal4
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey3))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey4)) | 
+      )
+
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5)!,BOOL,PROC
+  CODE
+  
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  pKey3 = pKeyVal3
+  pKey3 = pKeyVal4
+  pKey5 = pKeyVal5
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey3))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey4))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey5)) | 
+      )
+  
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,*? pKey6,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5,? pKeyVal6)!,BOOL,PROC
+  CODE
+    
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  pKey3 = pKeyVal3
+  pKey3 = pKeyVal4
+  pKey5 = pKeyVal5
+  pKey6 = pKeyVal6
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey3))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey4))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey5))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey6)) | 
+      )
+
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,*? pKey6,*? pKey7,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5,? pKeyVal6,? pKeyVal7)!,BOOL,PROC
+  CODE
+  
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  pKey3 = pKeyVal3
+  pKey3 = pKeyVal4
+  pKey5 = pKeyVal5
+  pKey6 = pKeyVal6
+  pKey7 = pKeyVal7
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey3))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey4))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey5))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey6))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey7)) | 
+      )
+  
+TableManager.GET    PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4,*? pKey5,*? pKey6,*? pKey7,*? pKey8,? pKeyVal1,? pKeyVal2,? pKeyVal3,? pKeyVal4,? pKeyVal5,? pKeyVal6,? pKeyVal7,? pKeyVal8)!,BOOL,PROC
+  CODE
+
+  IF SELF.GETClearsBuffer THEN CLEAR(pQueue).
+  pKey1 = pKeyVal1
+  pKey2 = pKeyVal2
+  pKey3 = pKeyVal3
+  pKey3 = pKeyVal4
+  pKey5 = pKeyVal5
+  pKey6 = pKeyVal6
+  pKey7 = pKeyVal7
+  pKey8 = pKeyVal8
+  RETURN SELF.GetQueueName(pQueue, | 
+      WHO(pQueue,WHERE(pQueue,pKey1))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey2))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey3))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey4))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey5))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey6))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey7))&','& |
+      WHO(pQueue,WHERE(pQueue,pKey8)) | 
+      )
   
 TableManager.AddCondition   PROCEDURE(ConditionTypeType pConditionType,<*? pField>,? pFirstValue,<? pLastValue>)!,PRIVATE
   CODE
@@ -195,95 +415,95 @@ TableManager.AddCondition   PROCEDURE(ConditionTypeType pConditionType,<*? pFiel
 TableManager.GetTufoInfo    PROCEDURE(*? pAny,*LONG pType,*LONG pAddress,*LONG pSize)
 !REGION TUFO
 !From https://github.com/MarkGoldberg/ClarionCommunity/blob/master/CW/Shared/Src/TUFO.INT
-                                      OMIT('***',_C70_)
+                              OMIT('***',_C70_)
 !--- see softvelocity.public.clarion6 "Variable Data Type" Sept,12,2006 (code posted by dedpahom) -----!
-tmTUFO                                INTERFACE,TYPE
-AssignLong                              PROCEDURE                           !+00h 
-AssignReal                              PROCEDURE                           !+04h 
-AssignUFO                               PROCEDURE                           !+08h 
-DistinctsUFO                            PROCEDURE                           !+0Ch
-DistinctsLong                           PROCEDURE                           !+10h
-_Type                                   PROCEDURE(LONG _UfoAddr),LONG       !+14h 
-ToMem                                   PROCEDURE                           !+18h
-FromMem                                 PROCEDURE                           !+1Ch
-OldFromMem                              PROCEDURE                           !+20h
-Pop                                     PROCEDURE(LONG _UfoAddr)            !+24h
-Push                                    PROCEDURE(LONG _UfoAddr)            !+28h
-DPop                                    PROCEDURE(LONG _UfoAddr)            !+2Ch 
-DPush                                   PROCEDURE(LONG _UfoAddr)            !+30h 
-_Real                                   PROCEDURE(LONG _UfoAddr),REAL       !+34h 
-_Long                                   PROCEDURE(LONG _UfoAddr),LONG       !+38h
-_Free                                   PROCEDURE(LONG _UfoAddr)            !+3Ch
-_Clear                                  PROCEDURE                           !+40h
-_Address                                PROCEDURE(LONG _UfoAddr),LONG       !+44h
-AClone                                  PROCEDURE(LONG _UfoAddr),LONG       !+48h
-Select                                  PROCEDURE                           !+4Ch 
-Slice                                   PROCEDURE                           !+50h 
-Designate                               PROCEDURE                           !+54h
-_Max                                    PROCEDURE(LONG _UfoAddr),LONG       !+58h
-_Size                                   PROCEDURE(LONG _UfoAddr),LONG       !+5Ch
-BaseType                                PROCEDURE(LONG _UfoAddr),LONG       !+60h
-DistinctUpper                           PROCEDURE                           !+64h
-Cleared                                 PROCEDURE(LONG _UfoAddr)            !+68h
-IsNull                                  PROCEDURE(LONG _UfoAddr),LONG       !+6Ch
-OEM2ANSI                                PROCEDURE(LONG _UfoAddr)            !+70h
-ANSI2OEM                                PROCEDURE(LONG _UfoAddr)            !+74h
-_Bind                                   PROCEDURE(LONG _UfoAddr)            !+78h
-_Add                                    PROCEDURE                           !+7Ch
-Divide                                  PROCEDURE                           !+80h
-Hash                                    PROCEDURE(LONG _UfoAddr),LONG       !+84h
-SetAddress                              PROCEDURE                           !+88h 
-Match                                   PROCEDURE                           !+8Ch 
-Identical                               PROCEDURE                           !+90h
-Store                                   PROCEDURE                           !+94h
-                                      END
-                                      !END-OMIT('***',_C70_)
-                                      COMPILE('***',_C70_)
+tmTUFO                        INTERFACE,TYPE
+AssignLong                      PROCEDURE                           !+00h 
+AssignReal                      PROCEDURE                           !+04h 
+AssignUFO                       PROCEDURE                           !+08h 
+DistinctsUFO                    PROCEDURE                           !+0Ch
+DistinctsLong                   PROCEDURE                           !+10h
+_Type                           PROCEDURE(LONG _UfoAddr),LONG       !+14h 
+ToMem                           PROCEDURE                           !+18h
+FromMem                         PROCEDURE                           !+1Ch
+OldFromMem                      PROCEDURE                           !+20h
+Pop                             PROCEDURE(LONG _UfoAddr)            !+24h
+Push                            PROCEDURE(LONG _UfoAddr)            !+28h
+DPop                            PROCEDURE(LONG _UfoAddr)            !+2Ch 
+DPush                           PROCEDURE(LONG _UfoAddr)            !+30h 
+_Real                           PROCEDURE(LONG _UfoAddr),REAL       !+34h 
+_Long                           PROCEDURE(LONG _UfoAddr),LONG       !+38h
+_Free                           PROCEDURE(LONG _UfoAddr)            !+3Ch
+_Clear                          PROCEDURE                           !+40h
+_Address                        PROCEDURE(LONG _UfoAddr),LONG       !+44h
+AClone                          PROCEDURE(LONG _UfoAddr),LONG       !+48h
+Select                          PROCEDURE                           !+4Ch 
+Slice                           PROCEDURE                           !+50h 
+Designate                       PROCEDURE                           !+54h
+_Max                            PROCEDURE(LONG _UfoAddr),LONG       !+58h
+_Size                           PROCEDURE(LONG _UfoAddr),LONG       !+5Ch
+BaseType                        PROCEDURE(LONG _UfoAddr),LONG       !+60h
+DistinctUpper                   PROCEDURE                           !+64h
+Cleared                         PROCEDURE(LONG _UfoAddr)            !+68h
+IsNull                          PROCEDURE(LONG _UfoAddr),LONG       !+6Ch
+OEM2ANSI                        PROCEDURE(LONG _UfoAddr)            !+70h
+ANSI2OEM                        PROCEDURE(LONG _UfoAddr)            !+74h
+_Bind                           PROCEDURE(LONG _UfoAddr)            !+78h
+_Add                            PROCEDURE                           !+7Ch
+Divide                          PROCEDURE                           !+80h
+Hash                            PROCEDURE(LONG _UfoAddr),LONG       !+84h
+SetAddress                      PROCEDURE                           !+88h 
+Match                           PROCEDURE                           !+8Ch 
+Identical                       PROCEDURE                           !+90h
+Store                           PROCEDURE                           !+94h
+                              END
+                              !END-OMIT('***',_C70_)
+                              COMPILE('***',_C70_)
 !According to Randy Rogers (Skype PM, Dec 13, 2010)
-tmTUFO                                INTERFACE,TYPE
-_Type                                   PROCEDURE(LONG _UfoAddr),LONG       !+00h
-ToMem                                   PROCEDURE                           !+04h
-FromMem                                 PROCEDURE                           !+08h
-OldFromMem                              PROCEDURE                           !+0Ch
-Pop                                     PROCEDURE(LONG _UfoAddr)            !+10h get a value from string stack
-Push                                    PROCEDURE(LONG _UfoAddr)            !+14h put a vaule to string stack
-DPop                                    PROCEDURE(LONG _UfoAddr)            !+18h get a value from DECIMAL stack
-DPush                                   PROCEDURE(LONG _UfoAddr)            !+1Ch put a vaule to DECIMAL stack
-_Real                                   PROCEDURE(LONG _UfoAddr),REAL       !+20h get a value as REAL
-_Long                                   PROCEDURE(LONG _UfoAddr),LONG       !+24h get a value as LONG
-_Free                                   PROCEDURE(LONG _UfoAddr)            !+28h disposes memory and frees a reference (sets it to NULL)
-_Clear                                  PROCEDURE                           !+2Ch clears a variable
-_Address                                PROCEDURE(LONG _UfoAddr),LONG       !+30h returns an address of a variable
-AssignLong                              PROCEDURE                           !+34h
-AssignReal                              PROCEDURE                           !+38h
-AssignUFO                               PROCEDURE                           !+3Ch
-AClone                                  PROCEDURE(LONG _UfoAddr),LONG       !+40h
-Select                                  PROCEDURE                           !+44h
-Slice                                   PROCEDURE                           !+48h
-Designate                               PROCEDURE                           !+4Ch returns group field as UFO object
-_Max                                    PROCEDURE(LONG _UfoAddr),LONG       !+50h number of elements in first dimension of an array
-_Size                                   PROCEDURE(LONG _UfoAddr),LONG       !+54h size of an object
-BaseType                                PROCEDURE(LONG _UfoAddr),LONG       !+58h
-DistinctUpper                           PROCEDURE                           !+5Ch
-DistinctsUFO                            PROCEDURE                           !+60h
-DistinctsLong                           PROCEDURE                           !+64h
-Cleared                                 PROCEDURE(LONG _UfoAddr)            !+68h was an object disposed?
-IsNull                                  PROCEDURE(LONG _UfoAddr),LONG       !+6Ch
-OEM2ANSI                                PROCEDURE(LONG _UfoAddr)            !+70h
-ANSI2OEM                                PROCEDURE(LONG _UfoAddr)            !+74h
-_Bind                                   PROCEDURE(LONG _UfoAddr)            !+78h bind all fields of a group
-_Add                                    PROCEDURE                           !+7Ch
-Divide                                  PROCEDURE                           !+80h
-Hash                                    PROCEDURE(LONG _UfoAddr),LONG       !+84h Calc CRC
-SetAddress                              PROCEDURE                           !+88h sets the address of a variable
-Match                                   PROCEDURE                           !+8Ch compares the type and the size of a field with a field of ClassDesc structure
-Identical                               PROCEDURE                           !+90h
-Store                                   PROCEDURE                           !+94h writes the value of an object into the memory address
-                                      END
-                                      !END-COMPILE('***',_C70_)
+tmTUFO                        INTERFACE,TYPE
+_Type                           PROCEDURE(LONG _UfoAddr),LONG       !+00h
+ToMem                           PROCEDURE                           !+04h
+FromMem                         PROCEDURE                           !+08h
+OldFromMem                      PROCEDURE                           !+0Ch
+Pop                             PROCEDURE(LONG _UfoAddr)            !+10h get a value from string stack
+Push                            PROCEDURE(LONG _UfoAddr)            !+14h put a vaule to string stack
+DPop                            PROCEDURE(LONG _UfoAddr)            !+18h get a value from DECIMAL stack
+DPush                           PROCEDURE(LONG _UfoAddr)            !+1Ch put a vaule to DECIMAL stack
+_Real                           PROCEDURE(LONG _UfoAddr),REAL       !+20h get a value as REAL
+_Long                           PROCEDURE(LONG _UfoAddr),LONG       !+24h get a value as LONG
+_Free                           PROCEDURE(LONG _UfoAddr)            !+28h disposes memory and frees a reference (sets it to NULL)
+_Clear                          PROCEDURE                           !+2Ch clears a variable
+_Address                        PROCEDURE(LONG _UfoAddr),LONG       !+30h returns an address of a variable
+AssignLong                      PROCEDURE                           !+34h
+AssignReal                      PROCEDURE                           !+38h
+AssignUFO                       PROCEDURE                           !+3Ch
+AClone                          PROCEDURE(LONG _UfoAddr),LONG       !+40h
+Select                          PROCEDURE                           !+44h
+Slice                           PROCEDURE                           !+48h
+Designate                       PROCEDURE                           !+4Ch returns group field as UFO object
+_Max                            PROCEDURE(LONG _UfoAddr),LONG       !+50h number of elements in first dimension of an array
+_Size                           PROCEDURE(LONG _UfoAddr),LONG       !+54h size of an object
+BaseType                        PROCEDURE(LONG _UfoAddr),LONG       !+58h
+DistinctUpper                   PROCEDURE                           !+5Ch
+DistinctsUFO                    PROCEDURE                           !+60h
+DistinctsLong                   PROCEDURE                           !+64h
+Cleared                         PROCEDURE(LONG _UfoAddr)            !+68h was an object disposed?
+IsNull                          PROCEDURE(LONG _UfoAddr),LONG       !+6Ch
+OEM2ANSI                        PROCEDURE(LONG _UfoAddr)            !+70h
+ANSI2OEM                        PROCEDURE(LONG _UfoAddr)            !+74h
+_Bind                           PROCEDURE(LONG _UfoAddr)            !+78h bind all fields of a group
+_Add                            PROCEDURE                           !+7Ch
+Divide                          PROCEDURE                           !+80h
+Hash                            PROCEDURE(LONG _UfoAddr),LONG       !+84h Calc CRC
+SetAddress                      PROCEDURE                           !+88h sets the address of a variable
+Match                           PROCEDURE                           !+8Ch compares the type and the size of a field with a field of ClassDesc structure
+Identical                       PROCEDURE                           !+90h
+Store                           PROCEDURE                           !+94h writes the value of an object into the memory address
+                              END
+                              !END-COMPILE('***',_C70_)
 !ENDREGION
-tufo                                  &tmTUFO
-addr                                  LONG
+tufo                          &tmTUFO
+addr                          LONG
   CODE
   addr = ADDRESS(pAny)
   IF NOT addr THEN RETURN.
@@ -475,10 +695,16 @@ isTime                            LONG
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Groups)
     IF RECORDS(SELF.Tables.Groups.Fields) <> 2 THEN CYCLE.
     GET(SELF.Tables.Groups.Fields,1)
-    isDate = CHOOSE(SELF.Tables.Groups.Fields.FieldType = tm:Date)
+    isDate = CHOOSE(NOT ERRORCODE() AND SELF.Tables.Groups.Fields.FieldType = tm:Date)
     GET(SELF.Tables.Groups.Fields,2)
-    isTime = CHOOSE(SELF.Tables.Groups.Fields.FieldType = tm:Time)
+    isTime = CHOOSE(NOT ERRORCODE() AND SELF.Tables.Groups.Fields.FieldType = tm:Time)
     IF isDate AND isTime
+      GET(SELF.Tables.Groups.Fields,1)
+      SELF.Tables.Groups.Fields.IsPartOfDateTime = 1
+      PUT(SELF.Tables.Groups.Fields)
+      GET(SELF.Tables.Groups.Fields,2)
+      SELF.Tables.Groups.Fields.IsPartOfDateTime = 1
+      PUT(SELF.Tables.Groups.Fields)
       SELF.Tables.Groups.IsDateTime = 1
       PUT(SELF.Tables.Groups)
     .
@@ -491,12 +717,12 @@ where                                 ANY
   SELF.SetQueue(SELF.Tables.Ranges)
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
     where = where & CHOOSE(where <> '',' AND ','') & |
-      SELF.SqlCondition(SELF.Tables.Ranges)    
+        SELF.SqlCondition(SELF.Tables.Ranges)    
   .
   SELF.SetQueue(SELF.Tables.Filters)
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Filters)
     where = where & CHOOSE(where <> '',' AND ','') & |
-      SELF.SqlCondition(SELF.Tables.Filters)    
+        SELF.SqlCondition(SELF.Tables.Filters)    
   .
   SELF.Tables.FileRef{PROP:Where} = where   
   
@@ -521,11 +747,11 @@ where                         ANY
           OF tm:EqualToValueRange OROF tm:EqualToValueFilter
             pCondition.FieldRef = pCondition.FirstValue
             where = where & CHOOSE(where <> '',' AND ','') & |
-              CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' = '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
+                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' = '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
           OF tm:BetweenValuesRange OROF tm:BetweenValuesFilter
             pCondition.FieldRef = pCondition.FirstValue
             where = where & CHOOSE(where <> '',' AND ','') & |
-              CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' BETWEEN '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
+                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' BETWEEN '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
             pCondition.FieldRef = pCondition.LastValue
             where = where & ' AND ' & SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
         .    
@@ -569,7 +795,7 @@ TableManager.FormatField    PROCEDURE(? pFieldValue,FieldTypeType pFieldType)!,S
   RETURN ''
 
 TableManager.Move   PROCEDURE(FILE pFile,DirectionTypeType pDirection)!,LONG,PRIVATE
-addr                   LONG
+addr                  LONG
   CODE
   
   addr = INSTANCE(pFile,THREAD())
@@ -620,7 +846,7 @@ TableManager.EvaluateConditions PROCEDURE!,LONG,PRIVATE
         IF NOT (SELF.Tables.Ranges.FieldRef = SELF.Tables.Ranges.FirstValue) THEN RETURN tm:Record:OutOfRange.
       OF tm:BetweenValuesRange 
         IF NOT (SELF.Tables.Ranges.FieldRef >= SELF.Tables.Ranges.FirstValue AND |
-          SELF.Tables.Ranges.FieldRef <= SELF.Tables.Ranges.LastValue) THEN RETURN tm:Record:OutOfRange.
+            SELF.Tables.Ranges.FieldRef <= SELF.Tables.Ranges.LastValue) THEN RETURN tm:Record:OutOfRange.
     .
   .
   
@@ -631,7 +857,7 @@ TableManager.EvaluateConditions PROCEDURE!,LONG,PRIVATE
         IF NOT (SELF.Tables.Filters.FieldRef = SELF.Tables.Filters.FirstValue) THEN RETURN tm:Record:Filtered.
       OF tm:BetweenValuesFilter
         IF NOT (SELF.Tables.Filters.FieldRef >= SELF.Tables.Filters.FirstValue AND |
-          SELF.Tables.Filters.FieldRef <= SELF.Tables.Filters.LastValue) THEN RETURN tm:Record:Filtered.
+            SELF.Tables.Filters.FieldRef <= SELF.Tables.Filters.LastValue) THEN RETURN tm:Record:Filtered.
       OF tm:ExpressionFilter
         IF NOT (SELF.EvaluateExpression(SELF.Tables.Filters.FirstValue)) THEN RETURN tm:Record:Filtered.
     .
@@ -640,14 +866,14 @@ TableManager.EvaluateConditions PROCEDURE!,LONG,PRIVATE
   RETURN tm:Record:OK
   
 TableManager.EvaluateExpression PROCEDURE(STRING pExpression)!,LONG,PRIVATE
-res LONG
+res                               LONG
   CODE
   res = EVALUATE(SELF.ReplaceVariables(pExpression,tm:ReplaceWithValues))
   IF INRANGE(ERRORCODE(),1010,1015)
     STOP('Error evaluating expression: '&ERRORCODE()&' '&ERROR()&'<13,10>'& |
-      pExpression&'<13,10>'& |
-      SELF.ReplaceVariables(pExpression,tm:ReplaceWithValues) |
-      )
+        pExpression&'<13,10>'& |
+        SELF.ReplaceVariables(pExpression,tm:ReplaceWithValues) |
+        )
   .
   RETURN res
   
@@ -701,10 +927,10 @@ TufoSize                          LONG
     .
     
     str = SUB(str,1,varstart-1) & |
-      CHOOSE(pReplaceType = tm:ReplaceWithValues,SELF.FormatField(SELF.Fields.FieldRef,SELF.Fields.FieldType),'') & |
-      CHOOSE(pReplaceType = tm:ReplaceWithNames,CLIP(SELF.Fields.FieldName),'') & |
-      CHOOSE(pReplaceType = tm:ReplaceWithSqlNames,CLIP(SELF.Fields.FieldSqlName),'') & |
-      CLIP(SUB(str,varend+1,LEN(str)))
+        CHOOSE(pReplaceType = tm:ReplaceWithValues,SELF.FormatField(SELF.Fields.FieldRef,SELF.Fields.FieldType),'') & |
+        CHOOSE(pReplaceType = tm:ReplaceWithNames,CLIP(SELF.Fields.FieldName),'') & |
+        CHOOSE(pReplaceType = tm:ReplaceWithSqlNames,CLIP(SELF.Fields.FieldSqlName),'') & |
+        CLIP(SUB(str,varend+1,LEN(str)))
     
   .
   RETURN str
@@ -730,7 +956,7 @@ TableManager.AddTable   PROCEDURE(QUEUE pQueue)!,PRIVATE
   .
   
 TableManager.Move   PROCEDURE(QUEUE pQueue,DirectionTypeType pDirection)!,LONG,PRIVATE
-addr                   LONG
+addr                  LONG
   CODE
   
   addr = INSTANCE(pQueue,THREAD())
@@ -768,7 +994,7 @@ TableManager.NextQueue  PROCEDURE(QUEUE pQueue)!,LONG,PROC,PRIVATE
   RETURN ERRORCODE()
 
 TableManager.PreviousQueue  PROCEDURE(QUEUE pQueue)!,LONG,PROC,PRIVATE
-ptr                       LONG
+ptr                           LONG
   CODE
   ptr = POINTER(pQueue)
   IF ptr 
@@ -777,6 +1003,16 @@ ptr                       LONG
     GET(pQueue,RECORDS(pQueue))
   .
   RETURN ERRORCODE()
+  
+TableManager.GetQueueName   PROCEDURE(QUEUE pQueue,STRING pName)!,BOOL,PROC,PRIVATE
+  CODE
+  GET(pQueue,pName)
+  IF NOT ERRORCODE() THEN RETURN TRUE.
+  RETURN FALSE
+  
+TableManager.SetGETClearsBuffer PROCEDURE(BOOL pValue)
+  CODE
+  SELF.GetClearsBuffer = pValue
   
 TableManager.ClearConditions    PROCEDURE(ConditionsType pConditions)!,PRIVATE
   CODE
@@ -794,6 +1030,7 @@ TableManager.Construct  PROCEDURE
   SELF.Conditions &= NEW ConditionsType
   SELF.Tables &= NEW TablesType
   SELF.Fields &= NEW FieldsType
+  SELF.GetClearsBuffer = TRUE
   
 TableManager.Destruct   PROCEDURE
   CODE

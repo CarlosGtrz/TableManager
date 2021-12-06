@@ -3,19 +3,19 @@
    MEMBER('TestApp.clw')                                   ! This is a MEMBER module
 
                      MAP
-                       INCLUDE('TESTSTABLEMANAGER.INC'),ONCE        !Local module procedure declarations
+                       INCLUDE('TESTS.INC'),ONCE        !Local module procedure declarations
                      END
 
 
 !!! <summary>
 !!! Generated from procedure template - Source
 !!! </summary>
-TestsTableManager    PROCEDURE                             ! Declare Procedure
+Tests                PROCEDURE                             ! Declare Procedure
   MAP
-AssertEqual PROCEDURE(? pExpected,? pActual,STRING pInfo)
-StringToFile    PROCEDURE(STRING pStr,STRING pFileName)
-  .
-testResults             ANY
+AssertEqual PROCEDURE(? pExpected,? pActual,STRING pInfo),LONG,PROC
+  END  
+
+TestsResult             ANY
 
 QTest                   QUEUE
 Id                        LONG
@@ -24,15 +24,15 @@ Number                    LONG
 IQTest                  LONG
 
   CODE
-? DEBUGHOOK(Detail:Record)
-? DEBUGHOOK(DetailS:Record)
 ? DEBUGHOOK(Orders:Record)
-? DEBUGHOOK(OrdersS:Record)
+  
+  TestsResult = FORMAT(TODAY(),@D10)&' '&FORMAT(CLOCK(),@T04)
+  
   DO OpenTps
   
-  IF MESSAGE('Test SQL?|(database: TableManagerInventory)','SQL?',ICON:Question,BUTTON:YES+BUTTON:NO,BUTTON:YES) = BUTTON:YES
-    DO OpenSql 
-  .
+  !IF MESSAGE('Test SQL?|(database: TableManagerInventory)','SQL?',ICON:Question,BUTTON:YES+BUTTON:NO,BUTTON:YES) = BUTTON:YES
+  !  DO OpenSql 
+  !.
   DO FillQTest
   
   DO TestLegacyTps 
@@ -41,13 +41,17 @@ IQTest                  LONG
   DO TestTableManagerSql
   DO TestLegacyQueue
   DO TestTableManagerQueue
+  
+  DO TestGetTps 
+  DO TestGetQueue
     
   DO CloseTps
   DO CloseSql
   
-  StringToFile(testResults,'TestResults.txt')
-  RUN('TestResults.txt')
+  DebugView('All tests done')
 
+  !StringToFile(TestsResult,'TestsResult.txt')
+  !RUN('TestsResult.txt')
 TestLegacyTps       ROUTINE
   DATA
 ordrecs LONG
@@ -79,7 +83,7 @@ total   DECIMAL(15,2)
   
   AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Legacy code TPS')
 
-TestTableManagerTps       ROUTINE
+TestTableManagerTps ROUTINE
   DATA
 ordrecs LONG
 detrecs LONG
@@ -138,12 +142,12 @@ total   DECIMAL(15,2)
   
   AssertEqual('4 7 435.82',ordrecs&' '&detrecs&' '&total,'Legacy code SQL<13,10,13,10>'&OrdersS{PROP:SQL}&'<13,10,13,10>'&DetailS{PROP:SQL})
 
-TestTableManagerSql       ROUTINE
+TestTableManagerSql ROUTINE
   DATA
 ordrecs LONG
 detrecs LONG
 total   DECIMAL(15,2)
-tm TableManager
+tm  TableManager
   CODE  
   
   IF NOT STATUS(OrdersS) THEN EXIT.
@@ -182,7 +186,7 @@ total   LONG
 TestTableManagerQueue   ROUTINE
   DATA
 total   LONG
-tm TableManager
+tm  TableManager
   CODE
   
   tm.AddFilter(QTest.Number,2000,4000)  
@@ -193,9 +197,66 @@ tm TableManager
   
   AssertEqual('6003000',total,'Table Manager Queue')
   
+TestGetTps          ROUTINE
+  DATA
+tm  TableManager
+cogr    GROUP
+custn LIKE(ORD:CustNumber)
+ordn  LIKE(ORD:OrderNumber)
+    END
+          
+  CODE  
+  
+  tm.GET(ORD:InvoiceNumberKey,999)
+  AssertEqual(' ',ORD:ShipToName,'GET TPS order 999')  
+  tm.GET(ORD:InvoiceNumberKey,5)
+  AssertEqual('Charmaine Curry',ORD:ShipToName,'GET TPS order 5')  
+  tm.GET(ORD:KeyCustOrderNumber,4,3)
+  AssertEqual('Larry Brown',ORD:ShipToName,'GET TPS order 4 3')  
+  cogr.custn = 10
+  cogr.ordn = 2
+  tm.GET(ORD:KeyCustOrderNumber,cogr)
+  AssertEqual('Gloria Edwards',ORD:ShipToName,'GET TPS order 10 2 group')  
+
+TestGetQueue        ROUTINE
+  DATA
+tm  TableManager
+
+qTest2  QUEUE
+Id1       LONG 
+Id2       LONG
+Id3       STRING(4)
+Text      STRING(50)
+        END
+idx1    LONG 
+idx2    LONG 
+idx3    LONG 
+  CODE  
+  
+
+  LOOP idx1 = 1 TO 100 
+    LOOP idx2 = 0 TO 99
+      LOOP idx3 = 0 TO 99
+        CLEAR(qTest2)
+        qTest2.Id1 = idx1
+        qTest2.Id2 = idx2
+        qTest2.Id3 = FORMAT(idx3,@N_3)
+        qTest2.Text = qTest2.Id1&' '&qTest2.Id2&' '&qTest2.Id3
+        ADD(qTest2)
+      .
+    .
+  .  
+  tm.GET(qTest2,qTest2.Id1,50)
+  AssertEqual('50 0   0',qTest2.Text,'GET Queue 50')  
+  tm.GET(qTest2,qTest2.Id1,qTest2.Id2,qTest2.Id3,25,12,'  6')
+  AssertEqual('25 12   6',qTest2.Text,'GET Queue 25 12 6')  
+  
 OpenTps             ROUTINE
+
   OPEN(Orders)
+  IF ERRORCODE() THEN STOP(ERRORCODE()&' '&ERROR()&' '&ERRORFILE()&' '&FILEERRORCODE()&' '&FILEERROR()).
   OPEN(Detail)
+  IF ERRORCODE() THEN STOP(ERRORCODE()&' '&ERROR()&' '&ERRORFILE()&' '&FILEERRORCODE()&' '&FILEERROR()).
 
 CloseTps            ROUTINE
   CLOSE(Orders)
@@ -250,42 +311,26 @@ FillQTest           ROUTINE
     QTest.Number = IQTest
     ADD(QTest)
   .
+
 AssertEqual         PROCEDURE(? pExpected,? pActual,STRING pInfo)!,LONG,PROC
+TestResult ANY
   CODE 
-  testResults = testResults & |      
-    CHOOSE(pExpected = pActual,'ok','--')&'<9>'& |
-    CLIP(pInfo)&'<13,10>' & |
-    'Exp: <'&CLIP(pExpected)&'>'&'<13,10>'& |
-    'Act: <'&CLIP(pActual)&'>' & |
-    '<13,10,13,10>'
   
-StringToFile        PROCEDURE(STRING pStr,STRING pFileName)
-bufSize               EQUATE(32768)
-dosFile               FILE,DRIVER('DOS'),CREATE
-buf                     RECORD
-                          STRING(bufSize)
-                        END
-                      END
-pos                   LONG
-  CODE
-  dosFile{PROP:Name} = pFileName
-  CREATE(dosFile)
-  IF ERRORCODE() THEN 
-    STOP(ERRORCODE()&' '&ERROR()&' '&ERRORFILE()&' '&FILEERRORCODE()&' '&FILEERROR())
-    RETURN
-  .  
-  OPEN(dosFile)
-  IF LEN(pStr)
-    pos = 1
-    LOOP
-      dosFile.Buf = pStr[ pos : LEN(pStr) ]
-      IF pos + bufSize > LEN(pStr)
-        ADD(dosFile,LEN(pStr) - pos + 1)
-      ELSE
-        ADD(dosFile)
-      .
-      pos += bufSize
-      IF pos > LEN(pStr) THEN BREAK.
-    .
-  .  
-  CLOSE(dosfile)  
+  TestResult = CHOOSE(pExpected = pActual,'ok','--')&'<9>'& |
+      pInfo&'<13,10>' & |
+      'Exp: <'&pExpected&'>'&'<13,10>'& |
+      'Act: <'&pActual&'>' & |
+      '<13,10>'
+  
+  DebugView(TestResult)
+  
+  IF pExpected <> pActual THEN 
+    SETCLIPBOARD(TestResult)
+    STOP(TestResult)
+  .
+
+  TestsResult =  CHOOSE(TestsResult = '','',TestsResult&'<13,10>')& |         
+      TestResult  
+  
+  RETURN CHOOSE(pExpected = pActual)
+    
