@@ -27,16 +27,23 @@
 !OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 !SOFTWARE.
 
+  MAP
+    MODULE('win32')
+      tm_OutputDebugString(*CSTRING cstr),PASCAL,RAW,NAME('OutputDebugStringA')      
+    END
+  END
+
+
+
 TableManager.Init   PROCEDURE
   CODE
   SELF.ClearConditions(SELF.Conditions)
-  SELF.GetClearsBuffer = TRUE
   
-TableManager.Init   PROCEDURE(*GROUP pRecord,SIGNED pN = 0)
+TableManager.Init   PROCEDURE(*GROUP pRecord)
 recref                ANY
   CODE
   SELF.Init
-  CLEAR(pRecord,pN)
+  CLEAR(pRecord)
   !If the table has been used before, clear its conditions
   recref &= pRecord
   CLEAR(SELF.Fields)
@@ -49,6 +56,7 @@ recref                ANY
   IF ERRORCODE() THEN RETURN.
   SELF.ClearConditions(SELF.Tables.Ranges)
   SELF.ClearConditions(SELF.Tables.Filters)
+  SELF.Tables.SETKey &= NULL 
   
 TableManager.AddRange   PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
   CODE
@@ -66,14 +74,35 @@ TableManager.AddFilter  PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
     SELF.AddCondition(tm:BetweenValuesFilter,pField,pFirstValue,pLastValue)
   .
   
-TableManager.AddFilter  PROCEDURE(STRING pExpression)  
-  CODE
-  SELF.AddFilterExpression(pExpression)
-    
 TableManager.AddFilterExpression    PROCEDURE(STRING pExpression)  
   CODE
-  SELF.AddCondition(tm:ExpressionFilter,,pExpression)
+  SELF.AddCondition(tm:ExpressionFilter,,pExpression)  
   
+TableManager.AddInclude  PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
+  CODE
+  IF OMITTED(pLastValue)
+    SELF.AddFilter(pField,pFirstValue)
+  ELSE
+    SELF.AddFilter(pField,pFirstValue,pLastValue)
+  .
+  
+TableManager.AddIncludeExpression   PROCEDURE(STRING pExpression)  
+  CODE
+  SELF.AddFilterExpression(pExpression)  
+  
+TableManager.AddExclude PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
+  CODE
+  IF OMITTED(pLastValue)
+    SELF.AddCondition(tm:NotEqualToValueFilter,pField,pFirstValue)
+  ELSE
+    SELF.AddCondition(tm:NotBetweenValuesFilter,pField,pFirstValue,pLastValue)
+  .
+  
+TableManager.AddExcludeExpression   PROCEDURE(STRING pExpression)  
+  CODE
+  SELF.AddCondition(tm:NotExpressionFilter,,pExpression)  
+  
+    
 TableManager.Variable   PROCEDURE(*? pField)!,STRING
 TufoType                  LONG
 TufoAddress               LONG
@@ -141,14 +170,11 @@ fileref               &FILE
   SELF.AddTable(fileref)
   
   IF SELF.Tables.IsSql
+    SELF.Tables.FileRef{PROP:FetchSize} = SELF.BufferPageSize
     SET(pKey1)
     SELF.SetSqlWhereConditions
   ELSE
-    SELF.SetQueue(SELF.Tables.Ranges)
-    LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
-      SELF.Tables.Ranges.FieldRef = SELF.Tables.Ranges.FirstValue
-    .
-    SET(pKey1,pKey1)
+    SELF.Tables.SETKey &= pKey1
   .
 
 TableManager.SET    PROCEDURE(KEY pKey1,KEY pKey2)
@@ -158,6 +184,9 @@ TableManager.SET    PROCEDURE(KEY pKey1,KEY pKey2)
 TableManager.SET    PROCEDURE(FILE pFile)
   CODE
   SELF.AddTable(pFile)
+  IF SELF.Tables.IsSql
+    SELF.Tables.FileRef{PROP:FetchSize} = SELF.BufferPageSize
+  .  
   SET(pFile)  
   IF SELF.Tables.IsSql
     SELF.SetSqlWhereConditions
@@ -165,10 +194,33 @@ TableManager.SET    PROCEDURE(FILE pFile)
     
 TableManager.NEXT   PROCEDURE(FILE pFile)!,LONG,PROC
   CODE  
+  IF NOT SELF.Tables.SETKey &= NULL
+    CLEAR(SELF.Tables.RecordRef)
+    SELF.SetQueue(SELF.Tables.Ranges)
+    LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
+      SELF.SetValue(SELF.Tables.Ranges,SELF.Tables.Ranges.FirstValue)
+    .
+    SET(SELF.Tables.SETKey,SELF.Tables.SETKey)
+    SELF.Tables.SETKey &= NULL
+  .  
   RETURN SELF.Move(pFile,tm:Next)  
 
 TableManager.PREVIOUS   PROCEDURE(FILE pFile)!,LONG,PROC
   CODE  
+  IF NOT SELF.Tables.SETKey &= NULL
+    CLEAR(SELF.Tables.RecordRef,1)
+    SELF.SetQueue(SELF.Tables.Ranges)
+    LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
+      IF SELF.Tables.Ranges.ConditionType = tm:BetweenValuesRange
+        SELF.SetValue(SELF.Tables.Ranges,SELF.Tables.Ranges.LastValue)
+      ELSE
+        SELF.SetValue(SELF.Tables.Ranges,SELF.Tables.Ranges.FirstValue)
+      .
+      
+    .
+    SET(SELF.Tables.SETKey,SELF.Tables.SETKey)
+    SELF.Tables.SETKey &= NULL
+  .  
   RETURN SELF.Move(pFile,tm:Previous)  
   
 TableManager.GET    PROCEDURE(KEY pKey1,? pKeyVal1,<? pKeyVal2>,<? pKeyVal3>,<? pKeyVal4>,<? pKeyVal5>,<? pKeyVal6>,<? pKeyVal7>,<? pKeyVal8>,<? pKeyVal9>,<? pKeyVal10>)!,BOOL
@@ -511,6 +563,27 @@ addr                          LONG
   pType = tufo._Type(addr)
   pAddress = tufo._Address(addr)
   pSize = tufo._Size(addr)
+   
+  
+TableManager.SetValue   PROCEDURE(ConditionsType pField,? pValue)
+  CODE  
+  
+  pField.FieldRef = pValue
+  
+TableManager.GetValue   PROCEDURE(ConditionsType pField)!,?
+  CODE
+  
+  RETURN pField.FieldRef
+ 
+TableManager.SetValue   PROCEDURE(FieldsType pField,? pValue)
+  CODE
+  
+  pField.FieldRef = pValue
+
+TableManager.GetValue            PROCEDURE(FieldsType pField)!,?
+  CODE
+  
+  RETURN pField.FieldRef
     
 TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
   CODE  
@@ -519,6 +592,7 @@ TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
   GET(SELF.Tables,SELF.Tables.TableAddress)
   IF ERRORCODE() THEN 
     SELF.Tables.FileRef &= pFile
+    SELF.Tables.RecordRef &= pFile{PROP:Record}
     SELF.Tables.IsSql = pFile{PROP:SQLDriver}
     SELF.Tables.Ranges &= NEW ConditionsType  
     SELF.Tables.Filters &= NEW ConditionsType  
@@ -530,7 +604,7 @@ TableManager.AddTable   PROCEDURE(FILE pFile)!,PRIVATE
   SELF.MoveConditionsToTable
   IF RECORDS(SELF.Conditions)
     GET(SELF.Conditions,1)
-    STOP('Not all conditions match fields in the table, example value: '&CLIP(SELF.Conditions.FirstValue))
+    SELF.RaiseError('Not all conditions match fields in the table, example value: '&CLIP(SELF.Conditions.FirstValue))
     SELF.ClearConditions(SELF.Conditions)
   .  
   
@@ -542,8 +616,8 @@ TableManager.MoveConditionsToTable  PROCEDURE!,PRIVATE
   SELF.SetQueue(SELF.Conditions)
   LOOP UNTIL SELF.NextQueue(SELF.Conditions)
         
-    !Expresson filters can't be linked to fields yet
-    IF SELF.Conditions.ConditionType = tm:ExpressionFilter
+    !Expression filters can't be linked to fields yet
+    IF SELF.Conditions.ConditionType = tm:ExpressionFilter OR SELF.Conditions.ConditionType = tm:NotExpressionFilter
       CLEAR(SELF.Tables.Filters)
       SELF.Tables.Filters = SELF.Conditions
       ADD(SELF.Tables.Filters)
@@ -569,7 +643,7 @@ TableManager.MoveConditionsToTable  PROCEDURE!,PRIVATE
           SELF.Tables.Ranges.FieldRef &= SELF.Conditions.FieldRef
           SELF.Tables.Ranges = SELF.Conditions
           ADD(SELF.Tables.Ranges)
-        OF tm:EqualToValueFilter OROF tm:BetweenValuesFilter 
+        OF tm:EqualToValueFilter OROF tm:BetweenValuesFilter OROF tm:NotEqualToValueFilter OROF tm:NotBetweenValuesFilter
           CLEAR(SELF.Tables.Filters)
           SELF.Tables.Filters.FieldRef &= SELF.Conditions.FieldRef
           SELF.Tables.Filters = SELF.Conditions
@@ -592,6 +666,7 @@ grpref                            &GROUP
 pos                               LONG
 grpref2                           &GROUP
 grpflds                           LONG
+fieldrf                           ANY
   CODE
   
   IF OMITTED(pGroup)        
@@ -603,7 +678,8 @@ grpflds                           LONG
     CLEAR(SELF.Fields)
     SELF.Fields.TableAddress = SELF.Tables.TableAddress
     SELF.Fields.FieldRef &= WHAT(grpref,fld-pStart)
-    SELF.GetTufoInfo(SELF.Fields.FieldRef,SELF.Fields.TufoType,SELF.Fields.TufoAddress,SELF.Fields.TufoSize)
+    fieldrf &= WHAT(grpref,fld-pStart)
+    SELF.GetTufoInfo(fieldrf,SELF.Fields.TufoType,SELF.Fields.TufoAddress,SELF.Fields.TufoSize)
     SELF.Fields.FieldName = WHO(grpref,fld-pStart)
     pos = INSTRING('|',SELF.Fields.FieldName,1,1)
     IF pos
@@ -716,15 +792,15 @@ where                                 ANY
   where = ''
   SELF.SetQueue(SELF.Tables.Ranges)
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
-    where = where & CHOOSE(where <> '',' AND ','') & |
-        SELF.SqlCondition(SELF.Tables.Ranges)    
+    SELF.AppendAny(where,SELF.SqlCondition(SELF.Tables.Ranges),' AND ')    
   .
   SELF.SetQueue(SELF.Tables.Filters)
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Filters)
-    where = where & CHOOSE(where <> '',' AND ','') & |
-        SELF.SqlCondition(SELF.Tables.Filters)    
+    SELF.AppendAny(where,SELF.SqlCondition(SELF.Tables.Filters),' AND ')    
   .
-  SELF.Tables.FileRef{PROP:Where} = where   
+  IF where
+    SELF.Tables.FileRef{PROP:Where} = where   
+  .  
   
 TableManager.SqlCondition   PROCEDURE(ConditionsType pCondition)!,STRING,PRIVATE  
 where                         ANY
@@ -732,8 +808,8 @@ where                         ANY
   
   IF pCondition.FieldType = tm:Group
     
-    IF pCondition.ConditionType =  tm:ExpressionFilter
-      STOP('Expression filters are not allowed with group fields in SQL tables')
+    IF pCondition.ConditionType =  tm:ExpressionFilter OR pCondition.ConditionType =  tm:NotExpressionFilter
+      SELF.RaiseError('Expression filters are not allowed with group fields in SQL tables')
       RETURN ''
     .
     CLEAR(SELF.Tables.Groups)
@@ -745,15 +821,33 @@ where                         ANY
       LOOP UNTIL SELF.NextQueue(SELF.Tables.Groups.Fields)
         CASE pCondition.ConditionType
           OF tm:EqualToValueRange OROF tm:EqualToValueFilter
-            pCondition.FieldRef = pCondition.FirstValue
-            where = where & CHOOSE(where <> '',' AND ','') & |
-                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' = '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
+            pCondition.FieldRef = pCondition.FirstValue !Set group values
+            SELF.AppendAny(where, |                
+                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' = '&SELF.FormatField(SELF.GetValue(SELF.Tables.Groups.Fields),SELF.Tables.Groups.Fields.FieldType) |                    
+                ,' AND ')            
+          OF tm:NotEqualToValueFilter
+            pCondition.FieldRef = pCondition.FirstValue !Set group values
+            SELF.AppendAny(where, |                
+                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' <> '&SELF.FormatField(SELF.GetValue(SELF.Tables.Groups.Fields),SELF.Tables.Groups.Fields.FieldType) |                                
+                ,' AND ')            
           OF tm:BetweenValuesRange OROF tm:BetweenValuesFilter
-            pCondition.FieldRef = pCondition.FirstValue
-            where = where & CHOOSE(where <> '',' AND ','') & |
-                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' BETWEEN '&SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
-            pCondition.FieldRef = pCondition.LastValue
-            where = where & ' AND ' & SELF.FormatField(SELF.Tables.Groups.Fields.FieldRef,SELF.Tables.Groups.Fields.FieldType)
+            pCondition.FieldRef = pCondition.FirstValue !Set group values
+            SELF.AppendAny(where, |                
+                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' BETWEEN '&SELF.FormatField(SELF.GetValue(SELF.Tables.Groups.Fields),SELF.Tables.Groups.Fields.FieldType) |
+                ,' AND ')            
+            pCondition.FieldRef = pCondition.LastValue !Set group values
+            SELF.AppendAny(where, |                
+                SELF.FormatField(SELF.GetValue(SELF.Tables.Groups.Fields),SELF.Tables.Groups.Fields.FieldType) | 
+                ,' AND ')                                               
+          OF tm:NotBetweenValuesFilter
+            pCondition.FieldRef = pCondition.FirstValue !Set group values
+            SELF.AppendAny(where, |                
+                CLIP(SELF.Tables.Groups.Fields.FieldSqlName)&' NOT BETWEEN '&SELF.FormatField(SELF.GetValue(SELF.Tables.Groups.Fields),SELF.Tables.Groups.Fields.FieldType) |                    
+                ,' AND ')                     
+            pCondition.FieldRef = pCondition.LastValue !Set group values
+            SELF.AppendAny(where, |                
+                SELF.FormatField(SELF.GetValue(SELF.Tables.Groups.Fields),SELF.Tables.Groups.Fields.FieldType) |            
+                ,' AND ')
         .    
       .      
       RETURN where
@@ -764,10 +858,16 @@ where                         ANY
     CASE pCondition.ConditionType
       OF tm:EqualToValueRange OROF tm:EqualToValueFilter
         RETURN CLIP(pCondition.FieldSqlName)&' = '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)
+      OF tm:NotEqualToValueFilter
+        RETURN CLIP(pCondition.FieldSqlName)&' <> '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)
       OF tm:BetweenValuesRange OROF tm:BetweenValuesFilter
         RETURN CLIP(pCondition.FieldSqlName)&' BETWEEN '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)&' AND '&SELF.FormatField(pCondition.LastValue,pCondition.FieldType)
+      OF tm:NotBetweenValuesFilter
+        RETURN CLIP(pCondition.FieldSqlName)&' NOT BETWEEN '&SELF.FormatField(pCondition.FirstValue,pCondition.FieldType)&' AND '&SELF.FormatField(pCondition.LastValue,pCondition.FieldType)        
       OF tm:ExpressionFilter
         RETURN CLIP(SELF.ReplaceVariables(pCondition.FirstValue,tm:ReplaceWithSqlNames))        
+      OF tm:NotExpressionFilter
+        RETURN 'NOT ( '& CLIP(SELF.ReplaceVariables(pCondition.FirstValue,tm:ReplaceWithSqlNames)) & ' )'
     .  
   .
   
@@ -793,19 +893,28 @@ TableManager.FormatField    PROCEDURE(? pFieldValue,FieldTypeType pFieldType)!,S
   .
   
   RETURN ''
+  
+TableManager.AppendAny  PROCEDURE(? pAny,STRING pText,STRING pSep,BOOL pClip = TRUE)!,STRING,PROC
+  CODE  
 
-TableManager.Move   PROCEDURE(FILE pFile,DirectionTypeType pDirection)!,LONG,PRIVATE
-addr                  LONG
-  CODE
-  
-  addr = INSTANCE(pFile,THREAD())
-  IF SELF.Tables.TableAddress <> addr
-    CLEAR(SELF.Tables)
-    SELF.Tables.TableAddress = addr
-    GET(SELF.Tables,SELF.Tables.TableAddress)
-    IF ERRORCODE() THEN RETURN tm:Record:OutOfRange.
+  IF pAny
+    IF pClip
+      pAny = CLIP(pAny)&pSep&CLIP(pText)
+    ELSE
+      pAny = pAny&pSep&pText
+    .
+  ELSE
+    IF pClip
+      pAny = CLIP(pText)
+    ELSE
+      pAny = pText
+    .
   .
-  
+  RETURN pAny
+
+TableManager.Move   PROCEDURE(FILE pFile,DirectionType pDirection)!,LONG,PRIVATE
+  CODE
+    
   IF SELF.Tables.IsSql
     CASE pDirection
       OF tm:Next
@@ -824,7 +933,7 @@ addr                  LONG
         PREVIOUS(pFile)
     .
     IF ERRORCODE() THEN RETURN ERRORCODE().
-    CASE SELF.EvaluateConditions()
+    CASE SELF.EvaluateConditions(pFile)
       OF tm:Record:OK
         RETURN tm:Record:OK
       OF tm:Record:Filtered
@@ -835,18 +944,30 @@ addr                  LONG
   .
   
   RETURN tm:Record:OutOfRange 
-      
-TableManager.EvaluateConditions PROCEDURE!,LONG,PRIVATE
+  
+TableManager.EvaluateConditions PROCEDURE(FILE pFile)!,LONG,PRIVATE
+  CODE
+  
+  RETURN SELF.EvaluateConditions(INSTANCE(pFile,THREAD())) 
+  
+TableManager.EvaluateConditions  PROCEDURE(LONG pAddress)!,LONG,PRIVATE
   CODE  
+  
+  IF SELF.Tables.TableAddress <> pAddress
+    CLEAR(SELF.Tables)
+    SELF.Tables.TableAddress = pAddress
+    GET(SELF.Tables,SELF.Tables.TableAddress)
+    IF ERRORCODE() THEN RETURN tm:Record:OutOfRange.
+  .
       
   SELF.SetQueue(SELF.Tables.Ranges)
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
     CASE SELF.Tables.Ranges.ConditionType
       OF tm:EqualToValueRange 
-        IF NOT (SELF.Tables.Ranges.FieldRef = SELF.Tables.Ranges.FirstValue) THEN RETURN tm:Record:OutOfRange.
+        IF NOT (SELF.GetValue(SELF.Tables.Ranges) = SELF.Tables.Ranges.FirstValue) THEN RETURN tm:Record:OutOfRange.
       OF tm:BetweenValuesRange 
-        IF NOT (SELF.Tables.Ranges.FieldRef >= SELF.Tables.Ranges.FirstValue AND |
-            SELF.Tables.Ranges.FieldRef <= SELF.Tables.Ranges.LastValue) THEN RETURN tm:Record:OutOfRange.
+        IF NOT (SELF.GetValue(SELF.Tables.Ranges) >= SELF.Tables.Ranges.FirstValue AND |
+            SELF.GetValue(SELF.Tables.Ranges) <= SELF.Tables.Ranges.LastValue) THEN RETURN tm:Record:OutOfRange.
     .
   .
   
@@ -854,12 +975,19 @@ TableManager.EvaluateConditions PROCEDURE!,LONG,PRIVATE
   LOOP UNTIL SELF.NextQueue(SELF.Tables.Filters)
     CASE SELF.Tables.Filters.ConditionType
       OF tm:EqualToValueFilter
-        IF NOT (SELF.Tables.Filters.FieldRef = SELF.Tables.Filters.FirstValue) THEN RETURN tm:Record:Filtered.
+        IF NOT (SELF.GetValue(SELF.Tables.Filters) = SELF.Tables.Filters.FirstValue) THEN RETURN tm:Record:Filtered.
+      OF tm:NotEqualToValueFilter
+        IF (SELF.GetValue(SELF.Tables.Filters) = SELF.Tables.Filters.FirstValue) THEN RETURN tm:Record:Filtered.
       OF tm:BetweenValuesFilter
-        IF NOT (SELF.Tables.Filters.FieldRef >= SELF.Tables.Filters.FirstValue AND |
-            SELF.Tables.Filters.FieldRef <= SELF.Tables.Filters.LastValue) THEN RETURN tm:Record:Filtered.
+        IF NOT (SELF.GetValue(SELF.Tables.Filters) >= SELF.Tables.Filters.FirstValue AND |
+            SELF.GetValue(SELF.Tables.Filters) <= SELF.Tables.Filters.LastValue) THEN RETURN tm:Record:Filtered.
+      OF tm:NotBetweenValuesFilter
+        IF (SELF.GetValue(SELF.Tables.Filters) >= SELF.Tables.Filters.FirstValue AND |
+            SELF.GetValue(SELF.Tables.Filters) <= SELF.Tables.Filters.LastValue) THEN RETURN tm:Record:Filtered.
       OF tm:ExpressionFilter
         IF NOT (SELF.EvaluateExpression(SELF.Tables.Filters.FirstValue)) THEN RETURN tm:Record:Filtered.
+      OF tm:NotExpressionFilter
+        IF (SELF.EvaluateExpression(SELF.Tables.Filters.FirstValue)) THEN RETURN tm:Record:Filtered.
     .
   .
   
@@ -870,14 +998,14 @@ res                               LONG
   CODE
   res = EVALUATE(SELF.ReplaceVariables(pExpression,tm:ReplaceWithValues))
   IF INRANGE(ERRORCODE(),1010,1015)
-    STOP('Error evaluating expression: '&ERRORCODE()&' '&ERROR()&'<13,10>'& |
+    SELF.RaiseError('Error evaluating expression: '&ERRORCODE()&' '&ERROR()&'<13,10>'& |
         pExpression&'<13,10>'& |
         SELF.ReplaceVariables(pExpression,tm:ReplaceWithValues) |
         )
   .
   RETURN res
   
-TableManager.ReplaceVariables   PROCEDURE(STRING pExpression,ReplaceTypeType pReplaceType)!,STRING,PRIVATE
+TableManager.ReplaceVariables   PROCEDURE(STRING pExpression,ReplaceType pReplaceType)!,STRING,PRIVATE
 str                               ANY
 strvar                            ANY
 pos                               LONG
@@ -891,7 +1019,7 @@ TufoSize                          LONG
   str = pExpression
   LOOP
     
-    pos = STRPOS(str,'\|[0-9]+\|[0-9]+\|[0-9]+\|')
+    pos = STRPOS(str,'\|[0-9]+\|[-0-9]+\|[0-9]+\|')
     IF NOT pos THEN BREAK.
     
     strvar = str
@@ -922,12 +1050,12 @@ TufoSize                          LONG
     
     GET(SELF.Fields,SELF.Fields.TufoAddress,SELF.Fields.TufoType,SELF.Fields.TufoSize)
     IF ERRORCODE()
-      STOP('Not all variables in expression can be linked to a structure. Expression: '&CLIP(pExpression)&'<13,10>|'&TufoType&'|'&TufoAddress&'|'&TufoSize&'|')
+      SELF.RaiseError('Not all variables in expression can be linked to a structure. Expression: '&CLIP(pExpression)&'<13,10>|'&TufoType&'|'&TufoAddress&'|'&TufoSize&'|')
       RETURN pExpression
     .
     
     str = SUB(str,1,varstart-1) & |
-        CHOOSE(pReplaceType = tm:ReplaceWithValues,SELF.FormatField(SELF.Fields.FieldRef,SELF.Fields.FieldType),'') & |
+        CHOOSE(pReplaceType = tm:ReplaceWithValues,SELF.FormatField(SELF.GetValue(SELF.Fields),SELF.Fields.FieldType),'') & |
         CHOOSE(pReplaceType = tm:ReplaceWithNames,CLIP(SELF.Fields.FieldName),'') & |
         CHOOSE(pReplaceType = tm:ReplaceWithSqlNames,CLIP(SELF.Fields.FieldSqlName),'') & |
         CLIP(SUB(str,varend+1,LEN(str)))
@@ -938,7 +1066,7 @@ TufoSize                          LONG
 TableManager.AddTable   PROCEDURE(QUEUE pQueue)!,PRIVATE
   CODE  
   CLEAR(SELF.Tables)
-  SELF.Tables.TableAddress = INSTANCE(pQueue,THREAD())    
+  SELF.Tables.TableAddress = ADDRESS(pQueue)    
   GET(SELF.Tables,SELF.Tables.TableAddress)
   IF ERRORCODE() THEN 
     SELF.Tables.Ranges &= NEW ConditionsType  
@@ -951,22 +1079,13 @@ TableManager.AddTable   PROCEDURE(QUEUE pQueue)!,PRIVATE
   SELF.MoveConditionsToTable
   IF RECORDS(SELF.Conditions)
     GET(SELF.Conditions,1)
-    STOP('Not all conditions match fields in the table, example value: '&CLIP(SELF.Conditions.FirstValue))
+    SELF.RaiseError('Not all conditions match fields in the table, example value: '&CLIP(SELF.Conditions.FirstValue))
     SELF.ClearConditions(SELF.Conditions)
   .
   
-TableManager.Move   PROCEDURE(QUEUE pQueue,DirectionTypeType pDirection)!,LONG,PRIVATE
-addr                  LONG
+TableManager.Move   PROCEDURE(QUEUE pQueue,DirectionType pDirection)!,LONG,PRIVATE
   CODE
-  
-  addr = INSTANCE(pQueue,THREAD())
-  IF SELF.Tables.TableAddress <> addr
-    CLEAR(SELF.Tables)
-    SELF.Tables.TableAddress = addr
-    GET(SELF.Tables,SELF.Tables.TableAddress)
-    IF ERRORCODE() THEN RETURN tm:Record:OutOfRange.
-  .
-    
+      
   LOOP
     CASE pDirection
       OF tm:Next
@@ -975,7 +1094,7 @@ addr                  LONG
         SELF.PreviousQueue(pQueue)
     .
     IF ERRORCODE() THEN RETURN ERRORCODE().    
-    CASE SELF.EvaluateConditions()
+    CASE SELF.EvaluateConditions(pQueue)
       OF tm:Record:OK
         RETURN tm:Record:OK
       OF tm:Record:OutOfRange OROF tm:Record:Filtered
@@ -983,6 +1102,11 @@ addr                  LONG
     .    
   .  
   RETURN tm:Record:OutOfRange  
+  
+TableManager.EvaluateConditions PROCEDURE(QUEUE pQueue)!,LONG,PRIVATE
+  CODE
+
+  RETURN SELF.EvaluateConditions(ADDRESS(pQueue)) 
 
 TableManager.SetQueue   PROCEDURE(QUEUE pQueue)!,PRIVATE
   CODE
@@ -1013,16 +1137,26 @@ TableManager.GetQueueName   PROCEDURE(QUEUE pQueue,STRING pName)!,BOOL,PROC,PRIV
 TableManager.SetGETClearsBuffer PROCEDURE(BOOL pValue)
   CODE
   SELF.GetClearsBuffer = pValue
-  
+
+TableManager.RaiseError PROCEDURE(STRING pErrorText)!,VIRTUAL
+  CODE
+  SELF.DebugView(pErrorText)  
+  IF SELF.RaiseErrorStops
+    STOP(pErrorText)
+  .  
+
 TableManager.ClearConditions    PROCEDURE(ConditionsType pConditions)!,PRIVATE
   CODE
+  
   IF NOT pConditions &= NULL
     SELF.SetQueue(pConditions)
-    LOOP UNTIL SELF.PreviousQueue(pConditions)
-      CLEAR(pConditions)
-      pConditions.FieldRef &= NULL
-      DELETE(pConditions)
-    .
+    LOOP UNTIL SELF.NextQueue(pConditions)
+      pConditions.FieldName &= NULL
+      pConditions.FieldSqlName &= NULL
+      pConditions.FirstValue &= NULL
+      pConditions.LastValue &= NULL
+    .    
+    FREE(pConditions)
   .  
 
 TableManager.Construct  PROCEDURE
@@ -1031,46 +1165,76 @@ TableManager.Construct  PROCEDURE
   SELF.Tables &= NEW TablesType
   SELF.Fields &= NEW FieldsType
   SELF.GetClearsBuffer = TRUE
+  SELF.RaiseErrorStops = TRUE
+  SELF.BufferPageSize = 20
   
 TableManager.Destruct   PROCEDURE
   CODE
-  SELF.ClearConditions(SELF.Conditions)
+  
+  IF NOT SELF.Conditions &= NULL
+    SELF.SetQueue(SELF.Conditions)
+    LOOP UNTIL SELF.NextQueue(SELF.Conditions)
+      SELF.Conditions.FieldName &= NULL
+      SELF.Conditions.FieldSqlName &= NULL
+      SELF.Conditions.FirstValue &= NULL
+      SELF.Conditions.LastValue &= NULL
+      SELF.Conditions.FieldRef &= NULL
+    .
+  .
   DISPOSE(SELF.Conditions) 
+  
+  IF NOT SELF.Fields &= NULL
+    SELF.SetQueue(SELF.Fields)
+    LOOP  UNTIL SELF.NextQueue(SELF.Fields)
+      SELF.Fields.FieldName &= NULL 
+      SELF.Fields.FieldSqlName &= NULL
+      SELF.Fields.FieldRef &= NULL
+    .
+  .
+  DISPOSE(SELF.Fields)
+
   IF NOT SELF.Tables &= NULL
     SELF.SetQueue(SELF.Tables)    
-    LOOP UNTIL SELF.PreviousQueue(SELF.Tables) 
-      CLEAR(SELF.Tables)
-      SELF.Tables.FileRef &= NULL
-      SELF.ClearConditions(SELF.Tables.Ranges)
+    LOOP UNTIL SELF.NextQueue(SELF.Tables) 
+      IF NOT SELF.Tables.Ranges &= NULL
+        SELF.SetQueue(SELF.Tables.Ranges)
+        LOOP UNTIL SELF.NextQueue(SELF.Tables.Ranges)
+          SELF.Tables.Ranges.FieldName &= NULL
+          SELF.Tables.Ranges.FieldSqlName &= NULL
+          SELF.Tables.Ranges.FirstValue &= NULL
+          SELF.Tables.Ranges.LastValue &= NULL
+          SELF.Tables.Ranges.FieldRef &= NULL
+        .
+      .
       DISPOSE(SELF.Tables.Ranges)
-      SELF.ClearConditions(SELF.Tables.Filters)      
+      IF NOT SELF.Tables.Filters &= NULL
+        SELF.SetQueue(SELF.Tables.Filters)
+        LOOP UNTIL SELF.NextQueue(SELF.Tables.Filters)
+          SELF.Tables.Filters.FieldName &= NULL
+          SELF.Tables.Filters.FieldSqlName &= NULL
+          SELF.Tables.Filters.FirstValue &= NULL
+          SELF.Tables.Filters.LastValue &= NULL
+          SELF.Tables.Filters.FieldRef &= NULL
+        .
+      .
       DISPOSE(SELF.Tables.Filters)
       IF NOT SELF.Tables.Groups &= NULL
         SELF.SetQueue(SELF.Tables.Groups)
-        LOOP UNTIL SELF.PreviousQueue(SELF.Tables.Groups)          
-          IF NOT SELF.Tables.Groups.Fields &= NULL
-            LOOP UNTIL SELF.PreviousQueue(SELF.Tables.Groups.Fields)
-              CLEAR(SELF.Tables.Groups.Fields) !gpf without this
-              SELF.Tables.Groups.Fields.FieldRef &= NULL 
-              DELETE(SELF.Tables.Groups.Fields)
-            .
-            DISPOSE(SELF.Tables.Groups.Fields)            
-          .
-          DELETE(SELF.Tables.Groups)
+        LOOP UNTIL SELF.NextQueue(SELF.Tables.Groups)          
+          DISPOSE(SELF.Tables.Groups.Fields)
         .        
-        DISPOSE(SELF.Tables.Groups)
       .
-      DELETE(SELF.Tables)
+      DISPOSE(SELF.Tables.Groups)
     .
-    DISPOSE(SELF.Tables)
   .
-  IF NOT SELF.Fields &= NULL  
-    SELF.SetQueue(SELF.Fields)
-    LOOP UNTIL SELF.PreviousQueue(SELF.Fields)
-      CLEAR(SELF.Fields)
-      SELF.Fields.FieldRef &= NULL
-      DELETE(SELF.Fields)
-    .  
-    DISPOSE(SELF.Fields)
-  .
+  DISPOSE(SELF.Tables)
+  
+TableManager.DebugView  PROCEDURE(STRING pStr)
+pre                       STRING('tm')
+lcstr                     CSTRING(SIZE(pre)+SIZE(pStr)+3)
+  CODE
+  
+  lcstr = pre&'|'&pStr&'|'
+  tm_OutputDebugString(lcstr)  
+
   

@@ -49,16 +49,19 @@ BetweenValuesRange    EQUATE
 EqualToValueFilter    EQUATE
 BetweenValuesFilter   EQUATE
 ExpressionFilter      EQUATE
+NotEqualToValueFilter EQUATE
+NotBetweenValuesFilter    EQUATE
+NotExpressionFilter   EQUATE
                     END
 
-DirectionTypeType   EQUATE(LONG)
-DirectionTypes      ITEMIZE(1),PRE(tm)
+DirectionType       EQUATE(LONG)
+Directions          ITEMIZE(1),PRE(tm)
 Next                  EQUATE
 Previous              EQUATE
                     END
 
-ReplaceTypeType     EQUATE(LONG)
-ReplaceTypes        ITEMIZE(1),PRE(tm)
+ReplaceType         EQUATE(LONG)
+Replaces            ITEMIZE(1),PRE(tm)
 ReplaceWithValues     EQUATE
 ReplaceWithNames      EQUATE
 ReplaceWithSqlNames   EQUATE
@@ -100,7 +103,9 @@ Fields                &FieldsType
 TablesType          QUEUE,TYPE
 TableAddress          LONG
 FileRef               &FILE
+RecordRef             &GROUP
 IsSql                 LONG
+SETKey                &KEY
 Ranges                &ConditionsType
 Filters               &ConditionsType
 Groups                &GroupsType
@@ -114,13 +119,18 @@ TimePart              TIME
 TableManager        CLASS,MODULE('TableManager'),LINK('TableManager'),TYPE
 
 Init                  PROCEDURE
-Init                  PROCEDURE(*GROUP pRecord,SIGNED pN = 0)
+Init                  PROCEDURE(*GROUP pRecord)
 
 AddRange              PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
-AddFilter             PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
-AddFilter             PROCEDURE(STRING pExpression)
 
+AddFilter             PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
 AddFilterExpression   PROCEDURE(STRING pExpression)
+AddInclude            PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
+AddIncludeExpression  PROCEDURE(STRING pExpression)
+
+AddExclude            PROCEDURE(*? pField,? pFirstValue,<? pLastValue>)
+AddExcludeExpression  PROCEDURE(STRING pExpression)
+
 Variable              PROCEDURE(*? pField),STRING
 V                     PROCEDURE(*? pField),STRING
 FormatString          PROCEDURE(? pField),STRING
@@ -157,9 +167,15 @@ GET                   PROCEDURE(QUEUE pQueue,*? pKey1,*? pKey2,*? pKey3,*? pKey4
 
 SetGETClearsBuffer    PROCEDURE(BOOL pValue)
 
+RaiseError            PROCEDURE(STRING pErrorText),VIRTUAL
+
 !Private methods
 AddCondition          PROCEDURE(ConditionTypeType pConditionType,<*? pField>,? pFirstValue,<? pLastValue>),PRIVATE
 GetTufoInfo           PROCEDURE(*? pAny,*LONG pType,*LONG pAddress,*LONG pSize),PRIVATE
+SetValue              PROCEDURE(ConditionsType pField,? pValue)
+GetValue              PROCEDURE(ConditionsType pField),?
+SetValue              PROCEDURE(FieldsType pField,? pValue)
+GetValue              PROCEDURE(FieldsType pField),?
 
 AddTable              PROCEDURE(FILE pFile),PRIVATE
 MoveConditionsToTable PROCEDURE,PRIVATE
@@ -170,14 +186,17 @@ MarkDateTimeGroups    PROCEDURE,PRIVATE
 SetSqlWhereConditions PROCEDURE,PRIVATE
 SqlCondition          PROCEDURE(ConditionsType pCondition),STRING,PRIVATE  
 FormatField           PROCEDURE(? pFieldValue,FieldTypeType),STRING,PRIVATE
+AppendAny             PROCEDURE(? pAny,STRING pText,STRING pSep,BOOL pClip = TRUE),STRING,PROC
 
-Move                  PROCEDURE(FILE pFile,DirectionTypeType pDirection),LONG,PRIVATE
-EvaluateConditions    PROCEDURE,LONG,PRIVATE
+Move                  PROCEDURE(FILE pFile,DirectionType pDirection),LONG,PRIVATE
+EvaluateConditions    PROCEDURE(FILE pFile),LONG
+EvaluateConditions    PROCEDURE(LONG pAddress),LONG,PRIVATE
 EvaluateExpression    PROCEDURE(STRING pExpression),LONG,PRIVATE
-ReplaceVariables      PROCEDURE(STRING pExpression,ReplaceTypeType pReplaceType),STRING,PRIVATE
+ReplaceVariables      PROCEDURE(STRING pExpression,ReplaceType pReplaceType),STRING,PRIVATE
 
 AddTable              PROCEDURE(QUEUE pQueue),PRIVATE
-Move                  PROCEDURE(QUEUE pQueue,DirectionTypeType pDirection),LONG,PRIVATE
+Move                  PROCEDURE(QUEUE pQueue,DirectionType pDirection),LONG,PRIVATE
+EvaluateConditions    PROCEDURE(QUEUE pQueue),LONG
 SetQueue              PROCEDURE(QUEUE pQueue),PRIVATE
 NextQueue             PROCEDURE(QUEUE pQueue),LONG,PROC,PRIVATE
 PreviousQueue         PROCEDURE(QUEUE pQueue),LONG,PROC,PRIVATE
@@ -187,10 +206,13 @@ ClearConditions       PROCEDURE(ConditionsType pConditions),PRIVATE
 Construct             PROCEDURE
 Destruct              PROCEDURE
 
+DebugView             PROCEDURE(STRING pStr)
+RaiseErrorStops       BOOL
+BufferPageSize        LONG
+
 Conditions            &ConditionsType,PRIVATE
 Tables                &TablesType,PRIVATE
 Fields                &FieldsType,PRIVATE
 
 GETClearsBuffer       BOOL,PRIVATE
-
                     END

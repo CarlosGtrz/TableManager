@@ -4,74 +4,84 @@ A class to read tables with less code while optimizing for SQL backends.
 ## Introduction
 This is classic code to read two related tables with Clarion:
 
-    CLEAR(ORD:Record)
-    ORD:OrderDate = DATE(10,12,1996)
-    SET(ORD:KeyOrderDate,ORD:KeyOrderDate)
-    LOOP
-      NEXT(Orders)
-      IF ERRORCODE() THEN BREAK.
-      IF ORD:OrderDate > DATE(10,28,1996) THEN BREAK.
-      IF ORD:ShipState <> 'FL' THEN CYCLE.
-      CLEAR(DTL:Record)
-      DTL:CustOrderNumbers = ORD:CustOrderNumbers
-      SET(DTL:KeyDetails,DTL:KeyDetails)
-      LOOP
-        NEXT(Detail)
-        IF ERRORCODE() THEN BREAK.
-        IF DTL:CustOrderNumbers <> ORD:CustOrderNumbers THEN BREAK.
-        !Some code
-      .
-    .
+```clarion
+CLEAR(ORD:Record)
+ORD:OrderDate = DATE(10,12,1996)
+SET(ORD:KeyOrderDate, ORD:KeyOrderDate)
+LOOP
+  NEXT(Orders)
+  IF ERRORCODE() THEN BREAK.
+  IF ORD:OrderDate > DATE(10,28,1996) THEN BREAK.
+  IF ORD:ShipState <> 'FL' THEN CYCLE.
+  CLEAR(DTL:Record)
+  DTL:CustOrderNumbers = ORD:CustOrderNumbers
+  SET(DTL:KeyDetails, DTL:KeyDetails)
+  LOOP
+    NEXT(Detail)
+    IF ERRORCODE() THEN BREAK.
+    IF DTL:CustOrderNumbers <> ORD:CustOrderNumbers THEN BREAK.
+    ! Some code
+  .
+.
+```
 
 Using **Table Manager**, it can be reduced to:
 
-    tm.Init(ORD:Record)
-    tm.AddRange(ORD:OrderDate,DATE(10,12,1996),DATE(10,28,1996))
-    tm.AddFilter(ORD:ShipState,'FL')
-    tm.SET(ORD:KeyOrderDate)
-    LOOP UNTIL tm.NEXT(Orders)
-      tm.Init(DTL:Record)
-      tm.AddRange(DTL:CustOrderNumbers,ORD:CustOrderNumbers)
-      tm.SET(DTL:KeyDetails)
-      LOOP UNTIL tm.NEXT(Detail)
-        !Some code
-      .
-    .  
+```clarion
+tm.Init(ORD:Record)
+tm.AddRange(ORD:OrderDate, DATE(10,12,1996), DATE(10,28,1996))
+tm.AddFilter(ORD:ShipState, 'FL')
+tm.SET(ORD:KeyOrderDate)
+LOOP UNTIL tm.NEXT(Orders)
+  tm.Init(DTL:Record)
+  tm.AddRange(DTL:CustOrderNumbers, ORD:CustOrderNumbers)
+  tm.SET(DTL:KeyDetails)
+  LOOP UNTIL tm.NEXT(Detail)
+    ! Some code
+  .
+.
+```
 
 When executed against a SQL backend, the first example generates this `WHERE` clause:
-    
-    WHERE (ORDERDATE >= ? AND (ORDERDATE > ? OR (CUSTNUMBER >= ? AND (CUSTNUMBER > ? OR (ORDERNUMBER >= ? )))))
-    
-It only filters records lower than the initial key value. The end of the range and the filters have to be evaluated on the client side. 
+
+```sql
+WHERE (ORDERDATE >= ? AND (ORDERDATE > ? OR (CUSTNUMBER >= ? AND (CUSTNUMBER > ? OR (ORDERNUMBER >= ? )))))
+```
+
+It only filters records lower than the initial key value. The end of the range and the filters have to be evaluated on the client side.
 
 Using **Table Manager**, a SQL logical expression is created and sent to the backend:
 
-    WHERE (ORDERDATE BETWEEN '19961012' AND '19961028' AND SHIPSTATE = 'FL')
-    
-    
+```sql
+WHERE (ORDERDATE BETWEEN '19961012' AND '19961028' AND SHIPSTATE = 'FL')
+```
+
 Another common code is:
 
-``` 
- CLEAR(ORD:Record)
- ORD:CustNumber = 4
- ORD:OrderNumber = 3
- GET(Orders,ORD:KeyCustOrderNumber)
- IF NOT ERRORCODE() 
-   !Some code
- .
-``` 
+```clarion
+CLEAR(ORD:Record)
+ORD:CustNumber = 4
+ORD:OrderNumber = 3
+GET(Orders, ORD:KeyCustOrderNumber)
+IF NOT ERRORCODE()
+  ! Some code
+.
+```
 
 With **Table Manager**, it can be:
-``` 
-  IF tm.GET(ORD:KeyCustOrderNumber,4,3)  !1 to 10 key components
-    !Some code
-  .
+
+```clarion
+IF tm.GET(ORD:KeyCustOrderNumber, 4, 3)  ! 1 to 10 key components
+  ! Some code
+.
 ```
+
 Also for queues:
-```
-  IF tm.GET(myQueue,myQueue.Field1,myQueue.Field2,Value1,Value2) !1 to 8 field/value pairs
-    !Some code
-  .
+
+```clarion
+IF tm.GET(myQueue, myQueue.Field1, myQueue.Field2, Value1, Value2)  ! 1 to 8 field/value pairs
+  ! Some code
+.
 ```
 
 ## Install
@@ -80,143 +90,207 @@ Copy `TableManager.clw` and `TableManager.inc` to the app folder or a folder in 
 ## Use
 Add to a global data embed (like _After Global INCLUDEs_) the line:
 
-    INCLUDE('TableManager.inc'),ONCE
-    
+```clarion
+INCLUDE('TableManager.inc'),ONCE
+```
+
 In your procedure or routine, declare an instance, and start modifying your code:
 
-    tm TableManager
-      CODE                               !Old code:
-      tm.Init(TBL:Record)                !CLEAR(TBL:Record)
-      tm.AddRange(TBL:field,LOC:value)   !TBL:field = LOC:Value
-      tm.SET(TBL:fieldKey)               !SET(TBL:fieldKey,TBL:fieldKey)      
-      ...
+```clarion
+tm TableManager
+CODE                               ! Old code:
+tm.Init(TBL:Record)                ! CLEAR(TBL:Record)
+tm.AddRange(TBL:field, LOC:value)  ! TBL:field = LOC:value
+tm.SET(TBL:fieldKey)               ! SET(TBL:fieldKey, TBL:fieldKey)
+...
+```
 
 ## Methods
 
 ### Init
-    .Init
-    .Init( record , n )
-    
-Initializes the instance's conditions. If a record is passed, it also clears the record; and if the record's table has been used before, it clears its ranges and filters. Parameter `n` is like Clarion's `CLEAR` parameter: set to -1 or 1 to clear the fields to their minimum or maximum value, defaults to 0.
+```clarion
+.Init
+.Init( record )
+```
+
+Initializes the instance's conditions. If a record is passed, it also clears the record; and if the record's table has been used before, it clears its ranges and filters.
 
 *Parameters*
-* _record_ The label of a table's record.
+- _record_ The label of a table's record.
 
 ### AddRange, AddFilter
-    .AddRange ( field , value )
-    .AddRange ( field , firstvalue , lastvalue )
-    .AddFilter ( field , value )
-    .AddFilter ( field , firstvalue , lastvalue )
-    .AddFilter ( expression )
+```clarion
+.AddRange( field , value )
+.AddRange( field , firstvalue , lastvalue )
+.AddFilter( field , value )
+.AddFilter( field , firstvalue , lastvalue )
+.AddFilter( expression )
+.AddInclude( field , firstvalue , lastvalue )
+.AddExclude( field , firstvalue , lastvalue )
+```
 
 Adds a condition to process the table referenced in the next `.SET` method call.
 
 *Parameters*
-* _field_ The label of a field in the table.
-* _value_ A constant, variable or expression. Only records where _field_ is equal to _value_ will be processed.
-* _firstvalue_, _lastvalue_ A constant, variable or expression. Only records where _field_ is between _firstvalue_ and _lastvalue_ will be processed.
-* _expression_ A short form of the method `.AddFilterExpression`
+- _field_ The label of a field in the table.
+- _value_ A constant, variable, or expression. Only records where _field_ is equal to _value_ will be processed.
+- _firstvalue_, _lastvalue_ A constant, variable, or expression. Only records where _field_ is between _firstvalue_ and _lastvalue_ will be processed.
+- _expression_ A short form of the method `.AddFilterExpression`.
 
 A _Range_ condition will cause the `.NEXT` method to return `tm:Record:OutOfRange` when a record doesn't match the condition, causing a `LOOP UNTIL` to break.
 
 A _Filter_ condition will cause the `.NEXT` method to skip records not matching the condition without breaking the loop.
 
+`.AddInclude` is an alias for `.AddFilter`. `.AddExclude` is like `.AddFilter` but excludes, instead of including, the records matching the expression.
+
 When the table is SQL, a `WHERE` clause will be sent to the backend, using the _field_'s SQL name and properly formatted `value`s.
 
 If the _field_ is a `GROUP` and the table is SQL, the condition for the `WHERE` clause will be created using the member fields. Example:
 
-    Orders               FILE,DRIVER('MSSQL')
-    ...
-    Record                   RECORD,PRE()
-    CustOrderNumbers            GROUP
-    CustNumber                    LONG
-    OrderNumber                   LONG
-                                END              
-    ...
-       tm.AddRange(DTL:CustOrderNumbers,ORD:CustOrderNumbers)
-       
+```clarion
+Orders               FILE,DRIVER('MSSQL')
+...
+Record                   RECORD,PRE()
+CustOrderNumbers            GROUP
+CustNumber                    LONG
+OrderNumber                   LONG
+                            END
+...
+tm.AddRange(DTL:CustOrderNumbers, ORD:CustOrderNumbers)
+```
+
 Will add this to the `WHERE` clause:
 
-    AND (CUSTNUMBER = 11 AND ORDERNUMBER = 1 )
+```sql
+AND (CUSTNUMBER = 11 AND ORDERNUMBER = 1)
+```
 
 ### AddFilterExpression
-    .AddFilterExpression ( expression ), .AddFilter ( expression )
-    .Variable ( field ), .V ( field )
-    .FormatString ( value ), .F (value)
-    .FormatDate ( value ), .D ( value )
-    .FormatTime ( value), .T (value )
+```clarion
+.AddFilterExpression( expression ), .AddFilter( expression )
+.AddIncludeExpression( expression ), .AddInclude( expression )
+.AddExcludeExpression( expression ), .AddExclude( expression )
+.Variable( field ), .V( field )
+.FormatString( value ), .F( value )
+.FormatDate( value ), .D( value )
+.FormatTime( value ), .T( value )
+```
 
-Adds a _filter_ condition using a logical expression. 
+Adds a _filter_ condition using a logical expression.
 
-Method `.Variable` (or its short form `.V`) must be used to enclose the field of the table to be used to evaluate the expression. It's not needed to use the `BIND()` instruction.
+`.AddIncludeExpression` is an alias for `.AddFilterExpression`. `.AddExcludeExpression` is like `.AddFilterExpression` but excludes, instead of including, the records matching the expression.
 
-Methods `.FormatString` (or `.F`),  `.FormatDate` (or `.D`) and `.FormatTime` (or `.T`) can be used to format the values to be used in the expression.
+Method `.Variable` (or its short form `.V`) must be used to include the field of the table to be used to evaluate the expression. It's not needed to use the `BIND()` instruction.
+
+Methods `.FormatString` (or `.F`), `.FormatDate` (or `.D`), and `.FormatTime` (or `.T`) can be used to format the values to be used in the expression.
 
 *Parameters*
-* _expression_ A logical expression using operators common to Clarion and SQL, like `=`, `<>`, `<`, `>`, `<=`, `>=`, `AND`, `OR`, `NOT`, `( )`; and simple math operators like `+ - * /`
+- _expression_ A logical expression using operators common to Clarion and SQL, like `=`, `<>`, `<`, `>`, `<=`, `>=`, `AND`, `OR`, `NOT`, `( )`; and simple math operators like `+ - * /`.
 
-*Example*
+**Example**
 This code:
- 
-    IF ORD:ShipZip = '33012' OR ORD:ShipZip = '33015' THEN CYCLE.
+
+```clarion
+IF ORD:ShipZip = '33012' OR ORD:ShipZip = '33015' THEN CYCLE.
+```
 
 Can be changed to:
 
-    tm.AddFilter('NOT ('&tm.V(ORD:ShipZip)&' = '&tm.S(33012)&' OR '&tm.V(ORD:ShipZip)&' = '&tm.S(33015)&' )')
+```clarion
+tm.AddFilter('NOT (' & tm.V(ORD:ShipZip) & ' = ' & tm.F('33012') & ' OR ' & tm.V(ORD:ShipZip) & ' = ' & tm.F('33015') & ')')
+```
 
 When executed against a TPS table or a queue, it will be passed to Clarion's `EVALUATE` as:
 
-    NOT ( '33064' = '33012' OR '33064' = '33015' )
-    
+```clarion
+NOT ( '33064' = '33012' OR '33064' = '33015' )
+```
+
 When executed against a SQL table, it will be appended to the `WHERE` clause as:
 
-    AND NOT ( SHIPZIP = '33012' OR SHIPZIP = '33015' )
+```sql
+AND NOT ( SHIPZIP = '33012' OR SHIPZIP = '33015' )
+```
 
 ### SET
-    .SET ( key )
-    .SET ( key , key )
-    .SET ( file )
-    .SET ( queue )
+```clarion
+.SET( key )
+.SET( key , key )
+.SET( file )
+.SET( queue )
+```
 
 Links all the conditions to the table to be processed, sets the order, and prepares to sequentially read the records.
 
 *Parameters*
-* _key_ The label of a key of the table to be processed. For backward compatibility witch Clarion's `SET` instruction, it can be passed twice.
-* _file_ The label of the `FILE` declaration of the table to be processed. It will be read in physical record order.
-* _queue_ The label of a `QUEUE` to be read as a table.
+- _key_ The label of a key of the table to be processed. For backward compatibility with Clarion's `SET` instruction, it can be passed twice.
+- _file_ The label of the `FILE` declaration of the table to be processed. It will be read in physical record order.
+- _queue_ The label of a `QUEUE` to be read as a table.
 
 ### NEXT, PREVIOUS
-    .NEXT( table )
-    .NEXT( queue )
-    .PREVIOUS( table )
-    .PREVIOUS( queue )
-    
+```clarion
+.NEXT( table )
+.NEXT( queue )
+.PREVIOUS( table )
+.PREVIOUS( queue )
+```
+
 Reads the next or previous records of the table. If a record doesn't match a _Filter_ condition, it's skipped. It can be used as a logical expression in a `LOOP UNTIL` structure.
 
 *Parameters*
-* _table_ The label of the `FILE` 
-* _queue_ The label or a `QUEUE`
+- _table_ The label of the `FILE`
+- _queue_ The label of a `QUEUE`
 
 *Returns*
-* `tm:Record:OK` (0) If the record read matches all conditions.
-* `tm:Record:OutOfRange` (1) If the record read fails a _Range_ condition.
-* `ERRORCODE()` If there is an error posted by Clarion's `NEXT` or `PREVIOUS` instruction.
-
+- `tm:Record:OK` (0) If the record read matches all conditions.
+- `tm:Record:OutOfRange` (1) If the record read fails a _Range_ condition.
+- `ERRORCODE()` If there is an error posted by Clarion's `NEXT` or `PREVIOUS` instruction.
 
 ### GET
-    .GET( tablekey , keval1, <keyval2>, ... , <keyval10> )
-    .GET( queue , field1 , fielvalue1 )
-    .GET( queue , field1 , field2 ... field8 , fieldvalue1, fieldvalue2 ... fieldvalue8 )
-    
+```clarion
+.GET( tablekey , keyval1, <keyval2>, ... , <keyval10> )
+.GET( tablekey , group )
+.GET( queue , field1 , fieldvalue1 )
+.GET( queue , field1 , field2 ... field8 , fieldvalue1, fieldvalue2 ... fieldvalue8 )
+```
+
 Clears the table or queue buffer and then gets the record matching the key values. Clear can be skipped by calling `.SetGETClearsBuffer(FALSE)`.
 
 *Parameters*
-* _tablekey_ The label of a KEY
-* _keyval1_ ... _keyval10_ The values for each key component
-* _queue_ The label or a `QUEUE`
-* _field1_ ... _field8_  The label of a field in the queue
-* _fieldvalue1_ ... _fieldvalue8_   The values for each field. 
+- _tablekey_ The label of a KEY
+- _keyval1_ ... _keyval10_ The values for each key component
+- _group_ A group with fields corresponding to each of the key components
+- _queue_ The label of a `QUEUE`
+- _field1_ ... _field8_ The label of a field in the queue
+- _fieldvalue1_ ... _fieldvalue8_ The values for each field.
 
 *Returns*
-* `TRUE` (1) If the record is found
-* `FALSE` (0) If there is an error posted by Clarion's `GET`.
+- `TRUE` (1) If the record is found
+- `FALSE` (0) If there is an error posted by Clarion's `GET`.
+
+### RaiseError
+```clarion
+.RaiseError( errortext )
+```
+
+Virtual method called when an error occurs. It's only called for errors that are not supposed to happen, like adding conditions not valid for a table. By default calls `STOP` to show the error.
+
+### DebugView
+```clarion
+.DebugView( text )
+```
+
+Outputs text to a debugger view (like DebugView++)
+
+## History
+* 2025-04-30 Updated github version to current production version, changes:
+Added .RaiseError virtual method  
+Added .RaiseErrorStops bool field  
+Added .AddInclude, .AddExclude, .AddIncludeExpression, .AddExcludeExpression methods  
+Added .EvaluateConditions method to evaluate hand coded record values  
+Added .BufferPageSize long field  
+Added .DebugView method  
+Delay Clarion SET until the first SET or PREVIOUS, to set initial key field value to the low or high value depending on the command (high for PREVIOUS)  
+Removed second parameter of .Init (clear to upper/lower values)  
+Fix for negative address integers  
+Internal .AppendAny for constructing expressions  
